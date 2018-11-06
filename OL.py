@@ -91,6 +91,9 @@ def train(src, tgt, trainer, fields, data_type, cur_device):
     trainer.train(train_iter_fct, None, opt.train_steps,
                   opt.valid_steps)
 
+    if opt.tensorboard:
+        trainer.report_manager.tensorboard_writer.close()
+
 
 def main(opt):
 
@@ -104,9 +107,9 @@ def main(opt):
     trainer, fields, data_type = load_model(opt, device_id)
 
     with io.open(opt.src, encoding='utf8') as f:
-        src = f.readlines()#.splitlines()
+        src = f.readlines()
     with io.open(opt.tgt, encoding='utf8') as f:
-        tgt = f.readlines()#.splitlines()
+        tgt = f.readlines()
     n_lines = len(src)
 
     for n_line in range(n_lines):
