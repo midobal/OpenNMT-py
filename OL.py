@@ -10,6 +10,7 @@ import torch
 
 import onmt.opts as opts
 import onmt.utils.distributed
+import onmt.inputters as inputters
 
 from onmt.train_single import main as single_main
 from onmt.inputters.inputter import build_dataset_iter, lazily_load_dataset, \
@@ -21,12 +22,7 @@ from onmt.models import build_model_saver
 from onmt.utils.logging import init_logger, logger
 from onmt.train_single import training_opt_postprocessing, _tally_parameters, _check_save_model_path
 
-def load_model(opt):
-
-    if len(opt.gpu_ranks) == 1:  # case 1 GPU only
-        device_id = 0
-    else:   # case only CPU
-        device_id = -1
+def load_model(opt, device_id):
 
     opt = training_opt_postprocessing(opt, device_id)
     init_logger(opt.log_file)
@@ -59,15 +55,40 @@ def load_model(opt):
     model_saver = build_model_saver(model_opt, opt, model, fields, optim)
 
     return build_trainer(opt, device_id, model, fields,
-                            optim, data_type, model_saver=model_saver), fields
+                            optim, data_type, model_saver=model_saver), fields, data_type
 
 def main(opt):
 
-    trainer, fields = load_model(opt)
+    if len(opt.gpu_ranks) == 1:  # case 1 GPU only
+        device_id = 0
+        cur_device = "cuda"
+    else:   # case only CPU
+        device_id = -1
+        cur_device = "cpu"
+
+    trainer, fields, data_type = load_model(opt, device_id)
+
+    data = inputters. \
+        build_dataset(fields,
+                      data_type,
+                      src_path=opt.src,
+                      src_data_iter=None,
+                      tgt_path=opt.tgt,
+                      tgt_data_iter=None,
+                      src_dir=opt.src_dir,
+                      sample_rate=16000,
+                      window_size=.02,
+                      window_stride=.01,
+                      window='hamming',
+                      use_filter_pred=False,
+                      image_channel_size=3)
 
     def train_iter_fct():
-        return build_dataset_iter(
-            lazily_load_dataset("train", opt), fields, opt)
+        return inputters.OrderedIterator(
+            dataset=data, device=cur_device,
+            batch_size=opt.batch_size, train=False, sort=False,
+            sort_within_batch=True, shuffle=False)
+        #return build_dataset_iter(lazily_load_dataset("train", opt), fields, opt)
 
     def valid_iter_fct():
         return build_dataset_iter(
