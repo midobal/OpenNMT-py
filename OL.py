@@ -22,6 +22,7 @@ from onmt.models import build_model_saver
 from onmt.utils.logging import init_logger, logger
 from onmt.train_single import training_opt_postprocessing, _tally_parameters, _check_save_model_path
 
+
 def load_model(opt, device_id):
 
     opt = training_opt_postprocessing(opt, device_id)
@@ -57,24 +58,16 @@ def load_model(opt, device_id):
     return build_trainer(opt, device_id, model, fields,
                             optim, data_type, model_saver=model_saver), fields, data_type
 
-def main(opt):
 
-    if len(opt.gpu_ranks) == 1:  # case 1 GPU only
-        device_id = 0
-        cur_device = "cuda"
-    else:   # case only CPU
-        device_id = -1
-        cur_device = "cpu"
-
-    trainer, fields, data_type = load_model(opt, device_id)
+def train(src, tgt, trainer, fields, data_type):
 
     data = inputters. \
         build_dataset(fields,
                       data_type,
-                      src_path=opt.src,
-                      src_data_iter=None,
-                      tgt_path=opt.tgt,
-                      tgt_data_iter=None,
+                      src_path=None,
+                      src_data_iter=[src],
+                      tgt_path=None,
+                      tgt_data_iter=[tgt],
                       src_dir=opt.src_dir,
                       sample_rate=16000,
                       window_size=.02,
@@ -88,11 +81,6 @@ def main(opt):
             dataset=data, device=cur_device,
             batch_size=opt.batch_size, train=False, sort=False,
             sort_within_batch=True, shuffle=False)
-        #return build_dataset_iter(lazily_load_dataset("train", opt), fields, opt)
-
-    def valid_iter_fct():
-        return build_dataset_iter(
-            lazily_load_dataset("valid", opt), fields, opt, is_train=False)
 
     # Do training.
     if len(opt.gpu_ranks):
@@ -101,6 +89,28 @@ def main(opt):
         logger.info('Starting training on CPU, could be very slow')
     trainer.train(train_iter_fct, None, opt.train_steps,
                   opt.valid_steps)
+
+
+def main(opt):
+
+    if len(opt.gpu_ranks) == 1:  # case 1 GPU only
+        device_id = 0
+        cur_device = "cuda"
+    else:   # case only CPU
+        device_id = -1
+        cur_device = "cpu"
+
+    trainer, fields, data_type = load_model(opt, device_id)
+
+    src = [line for line in open(opt.src)]
+    tgt = [line for line in open(opt.tgt)]
+    n_lines = len(src)
+
+    for n_line in range(n_lines):
+
+        logger.info('Processing line %s.' % n_line)
+
+        train(src[n_line], tgt[n_line], trainer, fields, data_type)
 
     if opt.tensorboard:
         trainer.report_manager.tensorboard_writer.close()

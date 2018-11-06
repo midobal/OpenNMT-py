@@ -520,8 +520,8 @@ def OL_opts(parser):
 
     # Optimization options
     group = parser.add_argument_group('Optimization- Type')
-    group.add_argument('-batch_size', type=int, default=64,
-                       help='Maximum batch size for training')
+    group.add_argument('-batch_size', type=int, default=1,
+                       help='Maximum batch size for training. This value should not be changed.')
     group.add_argument('-batch_type', default='sents',
                        choices=["sents", "tokens"],
                        help="""Batch grouping for batch_size. Standard
