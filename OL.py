@@ -56,11 +56,13 @@ def load_model(opt, device_id):
     # Build model saver
     model_saver = build_model_saver(model_opt, opt, model, fields, optim)
 
-    return build_trainer(opt, device_id, model, fields,
-                            optim, data_type, model_saver=model_saver), fields, data_type
+    #return build_trainer(opt, device_id, model, fields, optim, data_type, model_saver=model_saver), fields, data_type
+    return model, fields, optim, data_type, model_saver
 
 
-def train(src, tgt, trainer, fields, data_type, cur_device):
+def train(src, tgt, model, fields, optim, data_type, model_saver, cur_device, device_id):
+
+    trainer = build_trainer(opt, device_id, model, fields, optim, data_type, model_saver=model_saver)
 
     data = inputters. \
         build_dataset(fields,
@@ -91,9 +93,6 @@ def train(src, tgt, trainer, fields, data_type, cur_device):
     trainer.train(train_iter_fct, None, opt.train_steps,
                   opt.valid_steps)
 
-    if opt.tensorboard:
-        trainer.report_manager.tensorboard_writer.close()
-
 
 def main(opt):
 
@@ -104,7 +103,8 @@ def main(opt):
         device_id = -1
         cur_device = "cpu"
 
-    trainer, fields, data_type = load_model(opt, device_id)
+    #trainer, fields, data_type = load_model(opt, device_id)
+    model, fields, optim, data_type, model_saver = load_model(opt, device_id)
 
     with io.open(opt.src, encoding='utf8') as f:
         src = f.readlines()
@@ -117,7 +117,8 @@ def main(opt):
         logger.info('Processing line %s.' % n_line)
         logger.info('%s.' % src[n_line])
 
-        train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device)
+        #train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device)
+        train(src[n_line], tgt[n_line], model, fields, optim, data_type, model_saver, cur_device, device_id)
 
     if opt.tensorboard:
         trainer.report_manager.tensorboard_writer.close()
