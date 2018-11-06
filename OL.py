@@ -59,7 +59,7 @@ def load_model(opt, device_id):
                             optim, data_type, model_saver=model_saver), fields, data_type
 
 
-def train(src, tgt, trainer, fields, data_type):
+def train(src, tgt, trainer, fields, data_type, cur_device):
 
     data = inputters. \
         build_dataset(fields,
@@ -110,7 +110,7 @@ def main(opt):
 
         logger.info('Processing line %s.' % n_line)
 
-        train(src[n_line], tgt[n_line], trainer, fields, data_type)
+        train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device)
 
     if opt.tensorboard:
         trainer.report_manager.tensorboard_writer.close()
