@@ -712,8 +712,6 @@ def OL_opts(parser):
     group = parser.add_argument_group('Logging')
     group.add_argument('-verbose', action="store_true",
                        help='Print scores and predictions for each sentence')
-    group.add_argument('-log_file', type=str, default="",
-                       help="Output logs to a file under this path.")
     group.add_argument('-attn_debug', action="store_true",
                        help='Print best attn for each word')
     group.add_argument('-dump_beam', type=str, default="",
