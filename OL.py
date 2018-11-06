@@ -21,8 +21,7 @@ from onmt.models import build_model_saver
 from onmt.utils.logging import init_logger, logger
 from onmt.train_single import training_opt_postprocessing, _tally_parameters, _check_save_model_path
 
-
-def main(opt):
+def load_model(opt):
 
     if len(opt.gpu_ranks) == 1:  # case 1 GPU only
         device_id = 0
@@ -45,16 +44,6 @@ def main(opt):
     # Load fields generated from preprocess phase.
     fields = _load_fields(first_dataset, data_type, opt, checkpoint)
 
-    # Report src/tgt features.
-
-    src_features, tgt_features = _collect_report_features(fields)
-    for j, feat in enumerate(src_features):
-        logger.info(' * src feature %d size = %d'
-                    % (j, len(fields[feat].vocab)))
-    for j, feat in enumerate(tgt_features):
-        logger.info(' * tgt feature %d size = %d'
-                    % (j, len(fields[feat].vocab)))
-
     # Build model.
     model = build_model(model_opt, opt, fields, checkpoint)
     n_params, enc, dec = _tally_parameters(model)
@@ -69,8 +58,12 @@ def main(opt):
     # Build model saver
     model_saver = build_model_saver(model_opt, opt, model, fields, optim)
 
-    trainer = build_trainer(opt, device_id, model, fields,
+    return build_trainer(opt, device_id, model, fields,
                             optim, data_type, model_saver=model_saver)
+
+def main(opt):
+
+    trainer = load_model(opt)
 
     def train_iter_fct():
         return build_dataset_iter(
