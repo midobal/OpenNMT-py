@@ -99,7 +99,7 @@ def main(opt):
         logger.info('Starting training on GPU: %s' % opt.gpu_ranks)
     else:
         logger.info('Starting training on CPU, could be very slow')
-    trainer.train(train_iter_fct, valid_iter_fct, opt.train_steps,
+    trainer.train(train_iter_fct, None, opt.train_steps,
                   opt.valid_steps)
 
     if opt.tensorboard:
