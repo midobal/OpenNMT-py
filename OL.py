@@ -60,7 +60,7 @@ def load_model(opt, device_id):
                             optim, data_type, model_saver=model_saver), fields, data_type
 
 
-def train(src, tgt, trainer, fields, data_type, cur_device):
+def train(src, tgt, trainer, fields, data_type, cur_device, n):
 
     data = inputters. \
         build_dataset(fields,
@@ -88,11 +88,8 @@ def train(src, tgt, trainer, fields, data_type, cur_device):
         logger.info('Starting training on GPU: %s' % opt.gpu_ranks)
     else:
         logger.info('Starting training on CPU, could be very slow')
-    trainer.train(train_iter_fct, None, opt.train_steps,
+    trainer.train(train_iter_fct, None, opt.train_steps + n,
                   opt.valid_steps)
-
-    if opt.tensorboard:
-        trainer.report_manager.tensorboard_writer.close()
 
 
 def main(opt):
@@ -117,7 +114,7 @@ def main(opt):
         logger.info('Processing line %s.' % n_line)
         logger.info('%s.' % src[n_line])
 
-        train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device)
+        train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device, n_line)
 
     if opt.tensorboard:
         trainer.report_manager.tensorboard_writer.close()
