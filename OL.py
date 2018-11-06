@@ -104,9 +104,9 @@ def main(opt):
     trainer, fields, data_type = load_model(opt, device_id)
 
     with io.open(opt.src, encoding='utf8') as f:
-        src = f.read()#.splitlines()
+        src = f.readlines()#.splitlines()
     with io.open(opt.tgt, encoding='utf8') as f:
-        tgt = f.read()#.splitlines()
+        tgt = f.readlines()#.splitlines()
     n_lines = len(src)
 
     for n_line in range(n_lines):
