@@ -109,6 +109,7 @@ def main(opt):
     for n_line in range(n_lines):
 
         logger.info('Processing line %s.' % n_line)
+        logger.info('%s.' % src[n_line])
 
         train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device)
 
