@@ -33,8 +33,8 @@ def main(opt):
     init_logger(opt.log_file)
 
     # Load model.
-    logger.info('Loading checkpoint from %s' % opt.model)
-    checkpoint = torch.load(opt.model, map_location=lambda storage, loc: storage)
+    logger.info('Loading checkpoint from %s' % opt.models[0])
+    checkpoint = torch.load(opt.models[0], map_location=lambda storage, loc: storage)
     model_opt = checkpoint['opt']
 
     # Peek the first dataset to determine the data_type.
