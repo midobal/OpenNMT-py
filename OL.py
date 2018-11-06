@@ -59,11 +59,11 @@ def load_model(opt):
     model_saver = build_model_saver(model_opt, opt, model, fields, optim)
 
     return build_trainer(opt, device_id, model, fields,
-                            optim, data_type, model_saver=model_saver)
+                            optim, data_type, model_saver=model_saver), fields
 
 def main(opt):
 
-    trainer = load_model(opt)
+    trainer, fields = load_model(opt)
 
     def train_iter_fct():
         return build_dataset_iter(
