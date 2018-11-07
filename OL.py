@@ -94,7 +94,7 @@ def train(src, tgt, trainer, fields, data_type, cur_device, n, opt):
                   opt.valid_steps)
 
 
-def translate(src, model, fields, opt, model_opt):
+def translate(src, model, fields, opt, model_opt, out_file):
 
     kwargs = {k: getattr(opt, k)
               for k in ["beam_size", "n_best", "max_length", "min_length",
@@ -106,7 +106,7 @@ def translate(src, model, fields, opt, model_opt):
 
     translator = Translator(model, fields, global_scorer=onmt.translate.GNMTGlobalScorer(opt.alpha,
                             opt.beta, opt.coverage_penalty, opt.length_penalty),
-                            out_file = codecs.open(opt.output, 'w+', 'utf-8'), report_score=True,
+                            out_file = out_file, report_score=True,
                             copy_attn=model_opt.copy_attn, logger=logger,
                             **kwargs)
 
@@ -135,11 +135,13 @@ def main(opt):
         tgt = f.readlines()
     n_lines = len(src)
 
+    out_file = codecs.open(opt.output, 'w+', 'utf-8')
+
     for n_line in range(n_lines):
 
         logger.info('Processing line %s.' % n_line)
 
-        translate(src[n_line], model, fields, opt, model_opt)
+        translate(src[n_line], model, fields, opt, model_opt, out_file)
 
         train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device, n_line, opt)
 
