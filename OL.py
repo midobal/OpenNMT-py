@@ -8,6 +8,7 @@ import os
 import signal
 import torch
 import io
+import codecs
 
 import onmt.opts as opts
 import onmt.utils.distributed
@@ -22,6 +23,7 @@ from onmt.trainer import build_trainer
 from onmt.models import build_model_saver
 from onmt.utils.logging import init_logger, logger
 from onmt.train_single import training_opt_postprocessing, _tally_parameters, _check_save_model_path
+from onmt.translate.translator import Translator
 
 
 def load_model(opt, device_id):
@@ -57,10 +59,10 @@ def load_model(opt, device_id):
     model_saver = build_model_saver(model_opt, opt, model, fields, optim)
 
     return build_trainer(opt, device_id, model, fields,
-                            optim, data_type, model_saver=model_saver), fields, data_type
+                            optim, data_type, model_saver=model_saver), fields, data_type, model, model_opt
 
 
-def train(src, tgt, trainer, fields, data_type, cur_device, n):
+def train(src, tgt, trainer, fields, data_type, cur_device, n, opt):
 
     data = inputters. \
         build_dataset(fields,
@@ -92,6 +94,30 @@ def train(src, tgt, trainer, fields, data_type, cur_device, n):
                   opt.valid_steps)
 
 
+def translate(src, model, fields, opt, model_opt):
+
+    kwargs = {k: getattr(opt, k)
+              for k in ["beam_size", "n_best", "max_length", "min_length",
+                        "stepwise_penalty", "block_ngram_repeat",
+                        "ignore_when_blocking", "dump_beam", "report_bleu",
+                        "data_type", "replace_unk", "gpu", "verbose", "fast",
+                        "sample_rate", "window_size", "window_stride",
+                        "window", "image_channel_size"]}
+
+    translator = Translator(model, fields, global_scorer=onmt.translate.GNMTGlobalScorer(opt.alpha,
+                            opt.beta, opt.coverage_penalty, opt.length_penalty),
+                            out_file = codecs.open(opt.output, 'w+', 'utf-8'), report_score=True,
+                            copy_attn=model_opt.copy_attn, logger=logger,
+                            **kwargs)
+
+    translator.translate(src_path=None,
+                         src_data_iter=[src],
+                         tgt_path=None,
+                         src_dir=None,
+                         batch_size=opt.batch_size,
+                         attn_debug=opt.attn_debug)
+
+
 def main(opt):
 
     if len(opt.gpu_ranks) == 1:  # case 1 GPU only
@@ -101,7 +127,7 @@ def main(opt):
         device_id = -1
         cur_device = "cpu"
 
-    trainer, fields, data_type = load_model(opt, device_id)
+    trainer, fields, data_type, model, model_opt = load_model(opt, device_id)
 
     with io.open(opt.src, encoding='utf8') as f:
         src = f.readlines()
@@ -112,9 +138,10 @@ def main(opt):
     for n_line in range(n_lines):
 
         logger.info('Processing line %s.' % n_line)
-        logger.info('%s.' % src[n_line])
 
-        train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device, n_line)
+        translate(src[n_line], model, fields, opt, model_opt)
+
+        train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device, n_line, opt)
 
     if opt.tensorboard:
         trainer.report_manager.tensorboard_writer.close()
