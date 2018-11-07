@@ -137,7 +137,7 @@ def main(opt):
         logger.info('Processing line %s.' % n_line)
 
         translator.translate(src_path=None,
-                             src_data_iter=[src],
+                             src_data_iter=[src[n_line]],
                              tgt_path=None,
                              src_dir=None,
                              batch_size=opt.batch_size,
