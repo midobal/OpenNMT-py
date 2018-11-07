@@ -724,6 +724,23 @@ def OL_opts(parser):
     group.add_argument('-gpu', type=int, default=-1,
                        help="Device to run on")
 
+    # Options most relevant to speech.
+    group = parser.add_argument_group('Speech')
+    group.add_argument('-sample_rate', type=int, default=16000,
+                       help="Sample rate.")
+    group.add_argument('-window_size', type=float, default=.02,
+                       help='Window size for spectrogram in seconds')
+    group.add_argument('-window_stride', type=float, default=.01,
+                       help='Window stride for spectrogram in seconds')
+    group.add_argument('-window', default='hamming',
+                       help='Window type for spectrogram generation')
+
+    # Option most relevant to image input
+    group.add_argument('-image_channel_size', type=int, default=3,
+                       choices=[3, 1],
+                       help="""Using grayscale image can training
+                           model faster and smaller""")
+
 
 def translate_opts(parser):
     """ Translation / inference options """
