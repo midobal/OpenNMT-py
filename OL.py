@@ -62,6 +62,23 @@ def load_model(opt, device_id):
                             optim, data_type, model_saver=model_saver), fields, data_type, model, model_opt
 
 
+def build_translator(model, fields, opt, model_opt, out_file):
+
+    kwargs = {k: getattr(opt, k)
+              for k in ["beam_size", "n_best", "max_length", "min_length",
+                        "stepwise_penalty", "block_ngram_repeat",
+                        "ignore_when_blocking", "dump_beam", "report_bleu",
+                        "data_type", "replace_unk", "gpu", "verbose", "fast",
+                        "sample_rate", "window_size", "window_stride",
+                        "window", "image_channel_size"]}
+
+    return Translator(model, fields, global_scorer=onmt.translate.GNMTGlobalScorer(opt.alpha,
+                      opt.beta, opt.coverage_penalty, opt.length_penalty),
+                      out_file = out_file, report_score=True,
+                      copy_attn=model_opt.copy_attn, logger=logger,
+                      **kwargs)
+
+
 def train(src, tgt, trainer, fields, data_type, cur_device, n, opt):
 
     data = inputters. \
@@ -94,30 +111,6 @@ def train(src, tgt, trainer, fields, data_type, cur_device, n, opt):
                   opt.valid_steps)
 
 
-def translate(src, model, fields, opt, model_opt, out_file):
-
-    kwargs = {k: getattr(opt, k)
-              for k in ["beam_size", "n_best", "max_length", "min_length",
-                        "stepwise_penalty", "block_ngram_repeat",
-                        "ignore_when_blocking", "dump_beam", "report_bleu",
-                        "data_type", "replace_unk", "gpu", "verbose", "fast",
-                        "sample_rate", "window_size", "window_stride",
-                        "window", "image_channel_size"]}
-
-    translator = Translator(model, fields, global_scorer=onmt.translate.GNMTGlobalScorer(opt.alpha,
-                            opt.beta, opt.coverage_penalty, opt.length_penalty),
-                            out_file = out_file, report_score=True,
-                            copy_attn=model_opt.copy_attn, logger=logger,
-                            **kwargs)
-
-    translator.translate(src_path=None,
-                         src_data_iter=[src],
-                         tgt_path=None,
-                         src_dir=None,
-                         batch_size=opt.batch_size,
-                         attn_debug=opt.attn_debug)
-
-
 def main(opt):
 
     if len(opt.gpu_ranks) == 1:  # case 1 GPU only
@@ -129,19 +122,26 @@ def main(opt):
 
     trainer, fields, data_type, model, model_opt = load_model(opt, device_id)
 
+    out_file = codecs.open(opt.output, 'w+', 'utf-8')
+
+    translator = build_translator(model, fields, opt, model_opt, out_file)
+
     with io.open(opt.src, encoding='utf8') as f:
         src = f.readlines()
     with io.open(opt.tgt, encoding='utf8') as f:
         tgt = f.readlines()
     n_lines = len(src)
 
-    out_file = codecs.open(opt.output, 'w+', 'utf-8')
-
     for n_line in range(n_lines):
 
         logger.info('Processing line %s.' % n_line)
 
-        translate(src[n_line], model, fields, opt, model_opt, out_file)
+        translator.translate(src_path=None,
+                             src_data_iter=[src],
+                             tgt_path=None,
+                             src_dir=None,
+                             batch_size=opt.batch_size,
+                             attn_debug=opt.attn_debug)
 
         train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device, n_line, opt)
 
