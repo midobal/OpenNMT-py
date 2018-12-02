@@ -15,6 +15,8 @@ import onmt.opts
 from onmt.utils.logging import init_logger
 from onmt.translate.translator import build_translator
 
+from sacremoses import MosesTokenizer, MosesDetokenizer
+
 
 class Timer:
     def __init__(self, start=False):
@@ -279,7 +281,8 @@ class ServerModel:
                 if "model" not in self.tokenizer_opt:
                     raise ValueError(
                         "Missing mandatory tokenizer option 'model'")
-                self.tokenizer = 'Moses'
+                mt, md = MosesTokenizer(), MosesDetokenizer()
+                self.tokenizer = [mt, md]
             else:
                 raise ValueError("Invalid value for tokenizer type")
 
@@ -471,7 +474,7 @@ class ServerModel:
             tok, _ = self.tokenizer.tokenize(sequence)
             tok = " ".join(tok)
         elif self.tokenizer_opt["type"] == "moses":
-            tok 
+            tok = self.tokenizer[0].tokenize(sequence)
         return tok
 
     def maybe_detokenize(self, sequence):
@@ -495,5 +498,7 @@ class ServerModel:
             detok = self.tokenizer.DecodePieces(sequence.split())
         elif self.tokenizer_opt["type"] == "pyonmttok":
             detok = self.tokenizer.detokenize(sequence.split())
+        elif self.tokenizer_opt["type"] == "moses":
+            detok = self.tokenizer[1].detokenize(sequence.split())
 
         return detok
