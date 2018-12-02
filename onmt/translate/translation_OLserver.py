@@ -120,12 +120,11 @@ class TranslationServer():
 
     def run(self, inputs):
         """Translate `inputs`
-           We keep the same format as the Lua version i.e.
-             [{"id": model_id, "src": "sequence to translate"},{ ...}]
+             [{"model_id": model_id, "src": "sequence to translate"},{ ...}]
 
            We use inputs[0]["id"] as the model id
         """
-        model_id = inputs[0].get("id", 0)
+        model_id = inputs[0].get("model_id", 0)
         if model_id in self.models and self.models[model_id] is not None:
             return self.models[model_id].run(inputs)
         else:
@@ -276,6 +275,11 @@ class ServerModel:
                 tokenizer = pyonmttok.Tokenizer(mode,
                                                 **tokenizer_params)
                 self.tokenizer = tokenizer
+            elif self.tokenizer_opt['type'] == 'moses':
+                if "model" not in self.tokenizer_opt:
+                    raise ValueError(
+                        "Missing mandatory tokenizer option 'model'")
+                self.tokenizer = 'Moses'
             else:
                 raise ValueError("Invalid value for tokenizer type")
 
@@ -466,6 +470,8 @@ class ServerModel:
         elif self.tokenizer_opt["type"] == "pyonmttok":
             tok, _ = self.tokenizer.tokenize(sequence)
             tok = " ".join(tok)
+        elif self.tokenizer_opt["type"] == "moses":
+            tok 
         return tok
 
     def maybe_detokenize(self, sequence):
