@@ -16,6 +16,8 @@ from onmt.utils.logging import init_logger
 from onmt.translate.translator import build_translator
 
 from sacremoses import MosesTokenizer, MosesDetokenizer
+from tools.apply_bpe import BPE
+from re import sub
 
 
 class Timer:
@@ -73,7 +75,8 @@ class TranslationServer():
                       'load': conf.get('load', None),
                       'tokenizer_opt': conf.get('tokenizer', None),
                       'on_timeout': conf.get('on_timeout', None),
-                      'model_root': conf.get('model_root', self.models_root)
+                      'model_root': conf.get('model_root', self.models_root),
+                      'bpe_codes': conf.get('bpe_codes', None)
                       }
             kwargs = {k: v for (k, v) in kwargs.items() if v is not None}
             model_id = conf.get("id", None)
@@ -152,7 +155,7 @@ class TranslationServer():
 
 
 class ServerModel:
-    def __init__(self, opt, model_id, tokenizer_opt=None, load=False,
+    def __init__(self, opt, model_id, tokenizer_opt=None, bpe_opt=None, load=False,
                  timeout=-1, on_timeout="to_cpu", model_root="./"):
         """
             Args:
@@ -184,6 +187,8 @@ class ServerModel:
         self.logger = init_logger(self.opt.log_file)
         self.loading_lock = threading.Event()
         self.loading_lock.set()
+        self.bpe = None
+        self.bpe_codes = bpe_opt
 
         if load:
             self.load()
@@ -286,6 +291,9 @@ class ServerModel:
             else:
                 raise ValueError("Invalid value for tokenizer type")
 
+        if self.bpe_codes is not None:
+            self.bpe = BPE(self.bpe_codes)
+
         self.load_time = timer.tick()
         self.reset_unload_timer()
         self.loading_lock.set()
@@ -342,6 +350,7 @@ class ServerModel:
                     whitespaces_after = match_after.group(0)
                 head_spaces.append(whitespaces_before)
                 tok = self.maybe_tokenize(src.strip())
+                tok = self.maybe_BPE(tok)
                 texts.append(tok)
                 sslength.append(len(tok.split()))
                 tail_spaces.append(whitespaces_after)
@@ -373,8 +382,8 @@ class ServerModel:
         scores = [score_tensor.item()
                   for score_tensor in flatten_list(scores)]
 
-        results = [self.maybe_detokenize(item)
-                   for item in results]
+        results = self.maybe_deBPE([self.maybe_detokenize(item)
+                   for item in results])
 
         # build back results with empty texts
         for i in empty_indices:
@@ -477,6 +486,29 @@ class ServerModel:
             tok = self.tokenizer[0].tokenize(sequence)
         return tok
 
+    def maybe_BPE(self, sequence):
+        """Apply BPE to the sequence (or not)
+
+           Same args/returns as `apply_bpe`
+        """
+        if self.bpe is not None:
+            return self.apply_bpe(sequence)
+        return sequence
+
+    def apply_bpe(self, sequence):
+        """Apply BPE to a single sequence
+
+            Args:
+                sequence: (str) the sequence to tokenize
+
+            Returns:
+                tok: (str) the BPE sequence
+
+        """
+        if self.bpe is None:
+            raise ValueError("No BPE model loaded")
+        return self.bpe.segment(sequence)
+
     def maybe_detokenize(self, sequence):
         """De-tokenize the sequence (or not)
 
@@ -502,3 +534,20 @@ class ServerModel:
             detok = self.tokenizer[1].detokenize(sequence.split())
 
         return detok
+
+    def maybe_deBPE(self, sequence):
+        """Remove BPE from the sequence (or not)
+
+           Same args/returns as `apply_bpe`
+        """
+        if self.bpe is not None:
+            return self.remove_bpe(sequence)
+        return sequence
+
+    def remove_bpe(self, sequence):
+        """Remove bpe from a single sequence
+
+           Same args/returns as `tokenize`
+        """
+        return sub("(@@ )|(@@ ?$)", '', sequence)
+
