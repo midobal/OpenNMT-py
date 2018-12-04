@@ -2,7 +2,7 @@
 import argparse
 
 from flask import Flask, jsonify, request
-from onmt.translate import TranslationServer, ServerModelError
+from onmt.translate import OLServer, OLServerModelError
 
 STATUS_OK = "ok"
 STATUS_ERROR = "error"
@@ -20,7 +20,7 @@ def start(config_file,
 
     app = Flask(__name__)
     app.route = prefix_route(app.route, url_root)
-    translation_server = TranslationServer()
+    translation_server = OLServer()
     translation_server.start(config_file)
 
     @app.route('/models', methods=['GET'])
@@ -41,7 +41,7 @@ def start(config_file,
         try:
             model_id, load_time = translation_server.clone_model(
                 model_id, opt, timeout)
-        except ServerModelError as e:
+        except OLServerModelError as e:
             out['status'] = STATUS_ERROR
             out['error'] = str(e)
         else:
@@ -77,7 +77,7 @@ def start(config_file,
                      "n_best": n_best,
                      "pred_score": scores[i]}
                     for i in range(len(translation))]]
-        except ServerModelError as e:
+        except OLServerModelError as e:
             out['error'] = str(e)
             out['status'] = STATUS_ERROR
 

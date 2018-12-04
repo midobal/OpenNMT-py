@@ -46,11 +46,11 @@ class Timer:
         return elapsed
 
 
-class ServerModelError(Exception):
+class OLServerModelError(Exception):
     pass
 
 
-class TranslationServer():
+class OLServer():
     def __init__(self):
         self.models = {}
         self.next_id = 0
@@ -95,7 +95,7 @@ class TranslationServer():
             opt["models"] = self.models[model_id].opt.models
             return self.load_model(opt, timeout)
         else:
-            raise ServerModelError("No such model '%s'" % str(model_id))
+            raise OLServerModelError("No such model '%s'" % str(model_id))
 
     def load_model(self, opt, model_id=None, **model_kwargs):
         """Loading a model given a set of options
@@ -134,7 +134,7 @@ class TranslationServer():
             return self.models[model_id].run(inputs)
         else:
             print("Error No such model '%s'" % str(model_id))
-            raise ServerModelError("No such model '%s'" % str(model_id))
+            raise OLServerModelError("No such model '%s'" % str(model_id))
 
     def unload_model(self, model_id):
         """Manually unload a model.
@@ -143,7 +143,7 @@ class TranslationServer():
         if model_id in self.models and self.models[model_id] is not None:
             self.models[model_id].unload()
         else:
-            raise ServerModelError("No such model '%s'" % str(model_id))
+            raise OLServerModelError("No such model '%s'" % str(model_id))
 
     def list_models(self):
         """Return the list of available models
@@ -244,7 +244,7 @@ class ServerModel:
                                                report_score=False,
                                                out_file=open(os.devnull, "w"))
         except RuntimeError as e:
-            raise ServerModelError("Runtime Error: %s" % str(e))
+            raise OLServerModelError("Runtime Error: %s" % str(e))
 
         timer.tick("model_loading")
         if self.tokenizer_opt is not None:
@@ -319,8 +319,8 @@ class ServerModel:
                 "Model #%d is being loaded by another thread, waiting"
                 % self.model_id)
             if not self.loading_lock.wait(timeout=30):
-                raise ServerModelError("Model %d loading timeout"
-                                       % self.model_id)
+                raise OLServerModelError("Model %d loading timeout"
+                                         % self.model_id)
 
         else:
             if not self.loaded:
@@ -366,7 +366,7 @@ class ServerModel:
                     src_data_iter=texts_to_translate,
                     batch_size=self.opt.batch_size)
             except RuntimeError as e:
-                raise ServerModelError("Runtime Error: %s" % str(e))
+                raise OLServerModelError("Runtime Error: %s" % str(e))
 
         timer.tick(name="translation")
         self.logger.info("""Using model #%d\t%d inputs
