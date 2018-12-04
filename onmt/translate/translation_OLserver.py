@@ -509,7 +509,7 @@ class ServerModel:
         """
         if self.bpe is None:
             raise ValueError("No BPE model loaded")
-        return self.bpe.segment(' '.join(sequence))
+        return self.bpe.segment(' '.join(sequence)).split()
 
     def maybe_detokenize(self, sequence):
         """De-tokenize the sequence (or not)
@@ -551,5 +551,5 @@ class ServerModel:
 
            Same args/returns as `tokenize`
         """
-        return sub("(@@ )|(@@ ?$)", '', sequence)
+        return sub("(@@ )|(@@ ?$)", '', ' '.join(sequence)).split()
 
