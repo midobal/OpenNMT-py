@@ -385,7 +385,7 @@ class ServerModel:
                   for score_tensor in flatten_list(scores)]
 
         results = [self.maybe_deBPE(' '.join([self.maybe_detokenize(item)
-                   for item in results)])]
+                   for item in results]))]
 
         # build back results with empty texts
         for i in empty_indices:
