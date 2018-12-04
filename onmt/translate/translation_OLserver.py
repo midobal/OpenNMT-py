@@ -155,13 +155,14 @@ class OLServer():
 
 
 class ServerModel:
-    def __init__(self, opt, model_id, tokenizer_opt=None, bpe_opt=None, load=False,
+    def __init__(self, opt, model_id, tokenizer_opt=None, bpe_codes=None, load=False,
                  timeout=-1, on_timeout="to_cpu", model_root="./"):
         """
             Args:
                 opt: (dict) options for the Translator
                 model_id: (int) model id
                 tokenizer_opt: (dict) options for the tokenizer or None
+                bpe_codes: (str) path to the file containing the bpe codes
                 load: (bool) whether to load the model during __init__
                 timeout: (int) seconds before running `do_timeout`
                          Negative values means no timeout
@@ -188,7 +189,7 @@ class ServerModel:
         self.loading_lock = threading.Event()
         self.loading_lock.set()
         self.bpe = None
-        self.bpe_codes = bpe_opt
+        self.bpe_codes = bpe_codes
 
         if load:
             self.load()
