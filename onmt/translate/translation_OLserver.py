@@ -486,6 +486,7 @@ class ServerModel:
             tok = " ".join(tok)
         elif self.tokenizer_opt["type"] == "moses":
             tok = self.tokenizer[0].tokenize(sequence)
+            tok = " ".join(tok)
         return tok
 
     def maybe_BPE(self, sequence):
@@ -509,7 +510,7 @@ class ServerModel:
         """
         if self.bpe is None:
             raise ValueError("No BPE model loaded")
-        return self.bpe.segment(' '.join(sequence)).split()
+        return self.bpe.segment(sequence)
 
     def maybe_detokenize(self, sequence):
         """De-tokenize the sequence (or not)
@@ -551,5 +552,5 @@ class ServerModel:
 
            Same args/returns as `tokenize`
         """
-        return sub("(@@ )|(@@ ?$)", '', ' '.join(sequence)).split()
+        return sub("(@@ )|(@@ ?$)", '', sequence)
 
