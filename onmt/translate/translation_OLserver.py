@@ -18,6 +18,7 @@ from onmt.translate.translator import build_translator
 from sacremoses import MosesTokenizer, MosesDetokenizer
 from tools.apply_bpe import BPE
 from re import sub
+import codecs
 
 
 class Timer:
@@ -293,7 +294,7 @@ class ServerModel:
                 raise ValueError("Invalid value for tokenizer type")
 
         if self.bpe_codes is not None:
-            self.bpe = BPE(self.bpe_codes)
+            self.bpe = BPE(codecs.open(self.bpe_codes, encoding='utf-8'))
 
         self.load_time = timer.tick()
         self.reset_unload_timer()
