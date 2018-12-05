@@ -222,6 +222,8 @@ class ServerModel:
         prec_argv = sys.argv
         sys.argv = sys.argv[:1]
         parser = argparse.ArgumentParser()
+        onmt.opts.add_md_help_argument(parser)
+        onmt.opts.model_opts(parser)
         onmt.opts.OL_opts(parser)
 
         models = opt['models']
@@ -230,6 +232,7 @@ class ServerModel:
         opt['models'] = [os.path.join(self.model_root, model)
                          for model in models]
         opt['src'] = "dummy_src"
+        opt['data'] = "dummy_data"
 
         for (k, v) in opt.items():
             if k == 'models':
