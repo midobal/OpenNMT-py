@@ -253,7 +253,7 @@ class ServerModel:
     def load(self):
         self.loading_lock.clear()
 
-        if len(opt.gpu_ranks) == 1:  # case 1 GPU only
+        if len(self.opt.gpu_ranks) == 1:  # case 1 GPU only
             self.device_id = 0
             self.cur_device = "cuda"
         else:  # case only CPU
