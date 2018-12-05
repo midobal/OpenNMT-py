@@ -13,7 +13,9 @@ import torch
 import onmt.opts
 
 from onmt.utils.logging import init_logger
-from onmt.translate.translator import build_translator
+from OL import build_translator as build_OLtranslator
+from OL import load_model as load_OLmodel
+from OL import train as OLtrain
 
 from sacremoses import MosesTokenizer, MosesDetokenizer
 from tools.apply_bpe import BPE
@@ -128,11 +130,24 @@ class OLServer():
         """Translate `inputs`
              [{"model_id": model_id, "src": "sequence to translate"},{ ...}]
 
-           We use inputs[0]["id"] as the model id
+           We use inputs[0]["model_id"] as the model id
         """
         model_id = inputs[0].get("model_id", 0)
         if model_id in self.models and self.models[model_id] is not None:
             return self.models[model_id].run(inputs)
+        else:
+            print("Error No such model '%s'" % str(model_id))
+            raise OLServerModelError("No such model '%s'" % str(model_id))
+
+    def train(self, inputs):
+        """Train `inputs`
+             [{"model_id": model_id, "src": "sequence", "tgt": "sequence"},{ ...}]
+
+           We use inputs[0]["model_id"] as the model id
+        """
+        model_id = inputs[0].get("model_id", 0)
+        if model_id in self.models and self.models[model_id] is not None:
+            return self.models[model_id].train(inputs)
         else:
             print("Error No such model '%s'" % str(model_id))
             raise OLServerModelError("No such model '%s'" % str(model_id))
@@ -191,6 +206,7 @@ class ServerModel:
         self.loading_lock.set()
         self.bpe = None
         self.bpe_codes = bpe_codes
+        self.trained_sentences = 0
 
         if load:
             self.load()
@@ -206,7 +222,7 @@ class ServerModel:
         prec_argv = sys.argv
         sys.argv = sys.argv[:1]
         parser = argparse.ArgumentParser()
-        onmt.opts.translate_opts(parser)
+        onmt.opts.OL_opts(parser)
 
         models = opt['models']
         if not isinstance(models, (list, tuple)):
@@ -237,14 +253,27 @@ class ServerModel:
     def load(self):
         self.loading_lock.clear()
 
+        if len(opt.gpu_ranks) == 1:  # case 1 GPU only
+            self.device_id = 0
+            self.cur_device = "cuda"
+        else:  # case only CPU
+            self.device_id = -1
+            self.cur_device = "cpu"
+
         timer = Timer()
         self.logger.info("Loading model %d" % self.model_id)
         timer.start()
 
         try:
-            self.translator = build_translator(self.opt,
-                                               report_score=False,
-                                               out_file=open(os.devnull, "w"))
+            self.trainer, self.fields, self.data_type, self.model, self.model_opt = load_OLmodel(self.opt,
+                                                                                                 self.device_id)
+
+        except RuntimeError as e:
+            raise OLServerModelError("Runtime Error: %s" % str(e))
+
+        try:
+            self.translator = build_OLtranslator(self.model, self.fields, self.opt, self.model_opt,
+                                                 out_file=open(os.devnull, "w"))
         except RuntimeError as e:
             raise OLServerModelError("Runtime Error: %s" % str(e))
 
@@ -294,6 +323,7 @@ class ServerModel:
                 raise ValueError("Invalid value for tokenizer type")
 
         if self.bpe_codes is not None:
+            self.logger.info("Loading BPE")
             self.bpe = BPE(codecs.open(self.bpe_codes, encoding='utf-8'))
 
         self.load_time = timer.tick()
@@ -398,6 +428,97 @@ class ServerModel:
         self.logger.info("Translation Results: %d", len(results))
 
         return results, scores, self.opt.n_best, timer.times
+
+    def train(self, inputs):
+        """Train `inputs` using this model
+
+            Args:
+                inputs: [{"src": "...", "tgt": "..."},{"src": ...}]
+
+            Returns:
+                times: (dict) containing times
+        """
+        self.stop_unload_timer()
+
+        timer = Timer()
+        timer.start()
+        self.logger.info("Training using %d" % self.model_id)
+
+        if not self.loading_lock.is_set():
+            self.logger.info(
+                "Model #%d is being loaded by another thread, waiting"
+                % self.model_id)
+            if not self.loading_lock.wait(timeout=30):
+                raise OLServerModelError("Model %d loading timeout"
+                                         % self.model_id)
+
+        else:
+            if not self.loaded:
+                self.load()
+                timer.tick(name="load")
+            elif self.opt.cuda:
+                self.to_gpu()
+                timer.tick(name="to_gpu")
+
+        head_spaces_src = []
+        tail_spaces_src = []
+        head_spaces_tgt = []
+        tail_spaces_tgt = []
+        sources = []
+        targets = []
+        for i, inp in enumerate(inputs):
+            src = inp['src']
+            tgt = inp['tgt']
+            if src.strip() == "":
+                head_spaces_src.append(src)
+                tail_spaces_src.append("")
+            else:
+                whitespaces_before, whitespaces_after = "", ""
+                match_before = re.search(r'^\s+', src)
+                match_after = re.search(r'\s+$', src)
+                if match_before is not None:
+                    whitespaces_before = match_before.group(0)
+                if match_after is not None:
+                    whitespaces_after = match_after.group(0)
+                head_spaces_src.append(whitespaces_before)
+                tok = self.maybe_tokenize(src.strip())
+                tok = self.maybe_BPE(tok)
+                sources.append(tok)
+                tail_spaces_src.append(whitespaces_after)
+            if tgt.strip() == "":
+                head_spaces_tgt.append(tgt)
+                tail_spaces_tgt.append("")
+            else:
+                whitespaces_before, whitespaces_after = "", ""
+                match_before = re.search(r'^\s+', tgt)
+                match_after = re.search(r'\s+$', tgt)
+                if match_before is not None:
+                    whitespaces_before = match_before.group(0)
+                if match_after is not None:
+                    whitespaces_after = match_after.group(0)
+                head_spaces_tgt.append(whitespaces_before)
+                tok = self.maybe_tokenize(tgt.strip())
+                tok = self.maybe_BPE(tok)
+                targets.append(tok)
+                tail_spaces_tgt.append(whitespaces_after)
+
+        if sources != [] and targets != []:
+            for n in range(len(sources)):
+                src = sources[n]
+                tgt = targets[n]
+                try:
+                    OLtrain(src, tgt, self.trainer, self.fields, self.data_type, self.cur_device,
+                            self.trained_sentences, self.opt)
+                except RuntimeError as e:
+                    raise OLServerModelError("Runtime Error: %s" % str(e))
+
+        timer.tick(name="training")
+        self.logger.info("""Using model #%d\t%d inputs
+               \ttraining time: %f""" % (self.model_id, len(texts),
+                                            timer.times['training']))
+        self.reset_unload_timer()
+
+        return timer.times
 
     def do_timeout(self):
         """Timeout function that free GPU memory by moving the model to CPU

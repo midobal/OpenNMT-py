@@ -83,6 +83,21 @@ def start(config_file,
 
         return jsonify(out)
 
+    @app.route('/train', methods=['POST'])
+    def train():
+        inputs = request.get_json(force=True)
+        out = {}
+        try:
+            times = translation_server.train(inputs)
+
+            out = [[{"src": inputs[i]['src'], "tgt": inputs[i]['tgt']}
+                    for i in range(len(inputs))]]
+        except OLServerModelError as e:
+            out['error'] = str(e)
+            out['status'] = STATUS_ERROR
+
+        return jsonify(out)
+
     @app.route('/to_cpu/<int:model_id>', methods=['GET'])
     def to_cpu(model_id):
         out = {'model_id': model_id}
