@@ -232,7 +232,6 @@ class ServerModel:
         opt['models'] = [os.path.join(self.model_root, model)
                          for model in models]
         opt['src'] = "dummy_src"
-        opt['data'] = "dummy_data"
 
         for (k, v) in opt.items():
             if k == 'models':
@@ -517,7 +516,7 @@ class ServerModel:
 
         timer.tick(name="training")
         self.logger.info("""Using model #%d\t%d inputs
-               \ttraining time: %f""" % (self.model_id, len(texts),
+               \ttraining time: %f""" % (self.model_id, len(sources),
                                             timer.times['training']))
         self.reset_unload_timer()
 
