@@ -21,7 +21,8 @@ Table of Contents
   * [Requirements](#requirements)
   * [Features](#features)
   * [Quickstart](#quickstart)
-  * [Run on FloydHub](#run-on-floydhub)
+  * [Online Learning](#online-learning)
+  * [Run on FloydHub](#alternative-run-on-floydhub)
   * [Citation](#citation)
 
 ## Requirements
@@ -112,6 +113,74 @@ Now you have a model which you can use to predict on new data. We do this by run
 
 !!! note "Note"
     The predictions are going to be quite terrible, as the demo dataset is small. Try running on some larger datasets! For example you can download millions of parallel sentences for [translation](http://www.statmt.org/wmt16/translation-task.html) or [summarization](https://github.com/harvardnlp/sent-summary).
+
+##Online Learning
+
+### User Simulation
+
+You can use the translation references to simulate a user in an online learning environment.
+
+```bash
+python OL.py -data data/demo -save_model OL-model -optim sgd -learning_rate 0.02 -learning_rate_decay 1.0 -dropout 0 -model demo-model_step_XX.pt -src data/src-val.txt -tgt data/tgt-val.txt -output test.hyp
+```
+
+The simulation starts by translating the first sentence using the original translation system. Then, the translation hypothesis is saved into the output's file, and the source and the translation reference are used to retrain the system. After that, the following sentence is translated using the retrained system. The translation hypothesis is saved into the output's file, and the system is retrained using that sentence source and target. This process is repeated until all sentences have been translated.  
+
+### Server
+
+#### Configuration
+
+The server takes its configuration from a configuration file (default: `./available_models/conf.json`)
+
+* `models_root`: (opt) folder containing model checkpoints, [default: `./available_models`].
+* `models`: list of objects such as :
+    * `id`: (opt) manually assign an id (int), [default: value from counter].
+    * `name`: (opt) assing a name (str).
+    * `model`: (required) path to checkpoint file i.e. `*.pt`.
+    * `timeout`: (opt) interval (seconds) before unloading, reset at each translation using the model.
+    * `load`: (opt) whether to load the model at start [default: False].
+    * `on_timeout`: (opt) what to do on timeout: `unload` removes everything; `to_cpu` transfer the model to RAM (from GPU memory) this is faster to reload but takes RAM.
+    * `opt`: (opt) dict of translation options (see `./translate.py`).
+    * `tokenizer`: (opt) set tokenizer options (if any), such as:
+        * `type`: (str) value in {`sentencepiece`, `pyonmttok`, `moses`}.
+        * `model`: (str) path to tokenizer model.
+    * `bpe`: (opt) path to bpe codes.
+
+#### Start
+
+```bash
+export IP="0.0.0.0"
+export PORT=5000
+export URL_ROOT="/translator"
+export CONFIG="./available_models/conf.json"
+export HOST="127.0.0.1"
+
+python OLserver.py --ip $IP --port $PORT --url_root $URL_ROOT --config $CONFIG
+```
+
+#### Translate
+
+```bash
+curl -i -X POST -H "Content-Type: application/json" -d '[{"src": "It is time to define the winners.", "model_id": 0}]' http://$HOST:$PORT$URL_ROOT/translate
+```
+
+**Result (example)**:
+
+```bash
+[[{"n_best":1,"pred_score":-7.727391242980957,"src":"It is time to define the winners.","tgt":"Es ist m\u00fc\u00dfig, die Arbeit zu senken."}]]
+```
+
+#### Train
+
+```bash
+curl -i -X POST -H "Content-Type: application/json" -d '[{"src": "It is time to define the winners.", "tgt": "Nun sind nur noch die Sieger zu definieren.", "model_id": 0}]' http://$HOST:$PORT$URL_ROOT/train
+```
+
+**Result (example)**:
+
+```bash
+[[{"src":"It is time to define the winners.","tgt":"Nun sind nur noch die Sieger zu definieren."}]]
+```
 
 ## Alternative: Run on FloydHub
 
