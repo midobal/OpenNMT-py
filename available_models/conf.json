@@ -1,0 +1,23 @@
+{
+    "models_root": "./available_models",
+    "models": [
+        {
+            "id": 0,
+            "model": "../demo-model_step_5000.pt",
+            "timeout": 600,
+            "on_timeout": "to_cpu",
+            "load": true,
+            "opt": {
+                "beam_size": 5,
+		"data": "./data/demo",
+		"optim": "sgd",
+		"learning_rate": 0.02,
+		"learning_rate_decay": 1.0,
+		"dropout": 0
+            },
+            "tokenizer": {
+                "type": "moses",
+                "model": ""
+            }
+        }]
+}
