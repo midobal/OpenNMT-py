@@ -114,7 +114,7 @@ Now you have a model which you can use to predict on new data. We do this by run
 !!! note "Note"
     The predictions are going to be quite terrible, as the demo dataset is small. Try running on some larger datasets! For example you can download millions of parallel sentences for [translation](http://www.statmt.org/wmt16/translation-task.html) or [summarization](https://github.com/harvardnlp/sent-summary).
 
-##Online Learning
+## Online Learning
 
 ### User Simulation
 
