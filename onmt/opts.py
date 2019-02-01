@@ -463,6 +463,8 @@ def OL_opts(parser):
                        help="""Save a checkpoint every X steps""")
     group.add_argument('-keep_checkpoint', type=int, default=-1,
                        help="""Keep X checkpoints (negative: keep all)""")
+    group.add_argument('-ol_updates', type=int, default=1,
+                       help="""Retrain the system X times per sentence.""")
 
     # GPU
     group.add_argument('-gpuid', default=[], nargs='+', type=int,

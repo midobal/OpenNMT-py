@@ -131,6 +131,7 @@ def main(opt):
     with io.open(opt.tgt, encoding='utf8') as f:
         tgt = f.readlines()
     n_lines = len(src)
+    steps = 0
 
     for n_line in range(n_lines):
 
@@ -143,7 +144,9 @@ def main(opt):
                              batch_size=opt.batch_size,
                              attn_debug=opt.attn_debug)
 
-        train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device, n_line, opt)
+        for updates in range(opt.ol_updates):
+            train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device, steps, opt)
+            steps += 1
 
     if opt.tensorboard:
         trainer.report_manager.tensorboard_writer.close()
