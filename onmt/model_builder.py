@@ -138,7 +138,10 @@ def build_decoder(opt, embeddings):
             opt.copy_attn,
             opt.dropout,
             embeddings,
-            opt.reuse_copy_attn
+            opt.reuse_copy_attn,
+            opt.alpha,
+            opt.null_al,
+            opt.precision
         )
     return decoder
 

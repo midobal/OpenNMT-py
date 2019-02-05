@@ -59,7 +59,7 @@ class RNNDecoderBase(nn.Module):
                  hidden_size, attn_type="general", attn_func="softmax",
                  coverage_attn=False, context_gate=None,
                  copy_attn=False, dropout=0.0, embeddings=None,
-                 reuse_copy_attn=False):
+                 reuse_copy_attn=False, alpha=0.0, null_al=0.0, precision=3):
         super(RNNDecoderBase, self).__init__()
 
         # Basic attributes.
@@ -92,7 +92,8 @@ class RNNDecoderBase(nn.Module):
         self._coverage = coverage_attn
         self.attn = onmt.modules.GlobalAttention(
             hidden_size, coverage=coverage_attn,
-            attn_type=attn_type, attn_func=attn_func
+            attn_type=attn_type, attn_func=attn_func,
+            alpha=alpha, null_al=null_al, precision=precision
         )
 
         # Set up a separated copy attention layer, if needed.
