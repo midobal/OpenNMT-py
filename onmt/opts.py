@@ -483,7 +483,7 @@ def train_opts(parser):
               help="""Using grayscale image can training
                        model faster and smaller""")
     # Hybrid alignments
-    group.add('--alpha', '-alpha', type=float, default=0.0,
+    group.add('--alpha', '-alpha', type=float, default=1.0,
               help="""Normalization factor""")
     group.add('--null_al', '-null_al', type=float, default=0.0,
               help="""Null alignment probability""")

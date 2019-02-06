@@ -69,7 +69,7 @@ class GlobalAttention(nn.Module):
     """
 
     def __init__(self, dim, coverage=False, attn_type="dot",
-                 attn_func="softmax", alpha=0.0, null_al=0.0, precision=3):
+                 attn_func="softmax", alpha=1.0, null_al=0.0, precision=3):
         super(GlobalAttention, self).__init__()
 
         self.dim = dim
