@@ -2,7 +2,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
 
 from onmt.modules.sparse_activations import sparsemax
 from onmt.utils.misc import aeq, sequence_mask
@@ -69,7 +68,7 @@ class GlobalAttention(nn.Module):
     """
 
     def __init__(self, dim, coverage=False, attn_type="dot",
-                 attn_func="softmax", alpha=1.0, null_al=0.0, precision=3):
+                 attn_func="softmax"):
         super(GlobalAttention, self).__init__()
 
         self.dim = dim
@@ -89,10 +88,6 @@ class GlobalAttention(nn.Module):
         # mlp wants it with bias
         out_bias = self.attn_type == "mlp"
         self.linear_out = nn.Linear(dim * 2, dim, bias=out_bias)
-
-        self.alpha = alpha
-        self.null_al = null_al
-        self.precision = precision
 
         if coverage:
             self.linear_cover = nn.Linear(1, dim, bias=False)
@@ -139,35 +134,6 @@ class GlobalAttention(nn.Module):
             wquh = torch.tanh(wq + uh)
 
             return self.v(wquh.view(-1, dim)).view(tgt_batch, tgt_len, src_len)
-
-    def fa_alignments(self, batch_size, tgt_len, src_len):
-        alignments = torch.empty(batch_size, tgt_len, src_len, dtype=torch.float).cuda()
-
-        for batch in range(batch_size):
-
-            for i in range(tgt_len):
-
-                for j in range(src_len):
-
-                    if j == 0:
-                        alignments[batch][i][j] = self.null_al
-
-                    elif 0 < j <= src_len:
-                        r = math.exp(- self.precision / src_len)
-                        j_up = math.floor(i * src_len / tgt_len)
-                        j_down = j_up + 1
-                        h = - abs(i / tgt_len - j / src_len)
-                        h_up = - abs(i / tgt_len - j_up / src_len)
-                        h_down = - abs(i / tgt_len - j_down / src_len)
-                        alignments[batch][i][j] = (1 - self.null_al) * \
-                                           (math.e**(self.precision * h) /
-                                            (math.e**(self.precision * h_up * (1 - r**j_up) / (1 - r)) +
-                                             math.e**(self.precision * h_down * (1 - r**j_down) / (1 - r))))
-
-                    else:
-                        alignments[batch][i][j] = 0
-
-        return alignments
 
     def forward(self, source, memory_bank, memory_lengths=None, coverage=None):
         """
@@ -222,14 +188,6 @@ class GlobalAttention(nn.Module):
         else:
             align_vectors = sparsemax(align.view(batch*target_l, source_l), -1)
         align_vectors = align_vectors.view(batch, target_l, source_l)
-
-        # Hybridize attention weights with statistical alignments
-        # :math: `a_j^' = alpha a_j + (1 - alpha) fa_alignments`
-        align_vectors = torch.add(torch.mul(align_vectors, self.alpha),
-                                  torch.mul(self.fa_alignments(align_vectors.size()[0],
-                                                               align_vectors.size()[1],
-                                                               align_vectors.size()[2]),
-                                            (1 - self.alpha)))
 
         # each context vector c_t is the weighted average
         # over all the source hidden states

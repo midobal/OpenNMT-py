@@ -7,6 +7,8 @@ import onmt.models.stacked_rnn
 from onmt.utils.misc import aeq
 from onmt.utils.rnn_factory import rnn_factory
 
+import math
+
 
 class RNNDecoderBase(nn.Module):
     """
@@ -92,8 +94,7 @@ class RNNDecoderBase(nn.Module):
         self._coverage = coverage_attn
         self.attn = onmt.modules.GlobalAttention(
             hidden_size, coverage=coverage_attn,
-            attn_type=attn_type, attn_func=attn_func,
-            alpha=alpha, null_al=null_al, precision=precision
+            attn_type=attn_type, attn_func=attn_func
         )
 
         # Set up a separated copy attention layer, if needed.
@@ -140,6 +141,42 @@ class RNNDecoderBase(nn.Module):
                                      for _ in self.state["hidden"]])
         self.state["input_feed"] = self.state["input_feed"].detach()
 
+    def fa_alignments(self, batch_size, tgt_len, src_lengths):
+        """
+        :param batch_size:
+        :param tgt_len:
+        :param src_lengths:
+        :return alignments: statistical alignments `[tgt_len x batch x src_len]`.
+        """
+        alignments = torch.empty(tgt_len, batch_size, max(src_lengths), dtype=torch.float).cuda()
+
+        for batch in range(batch_size):
+            src_len = src_lengths[batch]
+
+            for i in range(tgt_len):
+
+                for j in range(src_len):
+
+                    if j == 0:
+                        alignments[i][batch][j] = self.null_al
+
+                    elif 0 < j <= src_len:
+                        r = math.exp(- self.precision / src_len)
+                        j_up = math.floor(i * src_len / tgt_len)
+                        j_down = j_up + 1
+                        h = - abs(i / tgt_len - j / src_len)
+                        h_up = - abs(i / tgt_len - j_up / src_len)
+                        h_down = - abs(i / tgt_len - j_down / src_len)
+                        alignments[i][batch][j] = (1 - self.null_al) * \
+                                           (math.e**(self.precision * h) /
+                                            (math.e**(self.precision * h_up * (1 - r**j_up) / (1 - r)) +
+                                             math.e**(self.precision * h_down * (1 - r**j_down) / (1 - r))))
+
+                    else:
+                        alignments[i][batch][j] = 0
+
+        return alignments
+
     def forward(self, tgt, memory_bank, memory_lengths=None,
                 step=None):
         """
@@ -181,6 +218,15 @@ class RNNDecoderBase(nn.Module):
             for k in attns:
                 if type(attns[k]) == list:
                     attns[k] = torch.stack(attns[k])
+
+        # Hybridize attention weights with statistical alignments
+        # :math: `a_j^' = alpha a_j + (1 - alpha) fa_alignments`
+        attns['std'] = torch.add(torch.mul(attns['std'], self.alpha),
+                                  torch.mul(self.fa_alignments(attns['std'].size()[1],
+                                                               attns['std'].size()[0],
+                                                               memory_lengths[0]),
+                                            (1 - self.alpha)))
+
         # TODO change the way attns is returned dict => list or tuple (onnx)
         return dec_outs, attns
 
