@@ -107,6 +107,10 @@ class RNNDecoderBase(nn.Module):
             self._copy = True
         self._reuse_copy_attn = reuse_copy_attn
 
+        self.alpha = alpha
+        self.null_al = null_al
+        self.precision = precision
+
     def init_state(self, src, memory_bank, encoder_final):
         """ Init decoder state with last state of the encoder """
         def _fix_enc_hidden(hidden):
@@ -148,10 +152,10 @@ class RNNDecoderBase(nn.Module):
         :param src_lengths:
         :return alignments: statistical alignments `[tgt_len x batch x src_len]`.
         """
-        alignments = torch.empty(tgt_len, batch_size, max(src_lengths), dtype=torch.float).cuda()
+        alignments = torch.empty(tgt_len, batch_size, max(src_lengths), dtype=torch.float, requires_grad=False).cuda()
 
         for batch in range(batch_size):
-            src_len = src_lengths[batch]
+            src_len = src_lengths[batch].item()
 
             for i in range(tgt_len):
 
@@ -162,11 +166,11 @@ class RNNDecoderBase(nn.Module):
 
                     elif 0 < j <= src_len:
                         r = math.exp(- self.precision / src_len)
-                        j_up = math.floor(i * src_len / tgt_len)
+                        j_up = math.floor((i + 1) * src_len / tgt_len)
                         j_down = j_up + 1
-                        h = - abs(i / tgt_len - j / src_len)
-                        h_up = - abs(i / tgt_len - j_up / src_len)
-                        h_down = - abs(i / tgt_len - j_down / src_len)
+                        h = - abs((i + 1) / tgt_len - (j + 1) / src_len)
+                        h_up = - abs((i + 1) / tgt_len - j_up / src_len)
+                        h_down = - abs((i + 1) / tgt_len - j_down / src_len)
                         alignments[i][batch][j] = (1 - self.null_al) * \
                                            (math.e**(self.precision * h) /
                                             (math.e**(self.precision * h_up * (1 - r**j_up) / (1 - r)) +
@@ -224,7 +228,7 @@ class RNNDecoderBase(nn.Module):
         attns['std'] = torch.add(torch.mul(attns['std'], self.alpha),
                                   torch.mul(self.fa_alignments(attns['std'].size()[1],
                                                                attns['std'].size()[0],
-                                                               memory_lengths[0]),
+                                                               memory_lengths),
                                             (1 - self.alpha)))
 
         # TODO change the way attns is returned dict => list or tuple (onnx)
