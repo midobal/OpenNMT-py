@@ -508,11 +508,13 @@ class ServerModel:
             for n in range(len(sources)):
                 src = sources[n]
                 tgt = targets[n]
-                try:
-                    OLtrain(src, tgt, self.trainer, self.fields, self.data_type, self.cur_device,
-                            self.trained_sentences, self.opt)
-                except RuntimeError as e:
-                    raise OLServerModelError("Runtime Error: %s" % str(e))
+                for updates in range(self.opt.ol_updates):
+                    try:
+                        OLtrain(src, tgt, self.trainer, self.fields, self.data_type, self.cur_device,
+                                self.trained_sentences, self.opt)
+                        self.trained_sentences += 1
+                    except RuntimeError as e:
+                        raise OLServerModelError("Runtime Error: %s" % str(e))
 
         timer.tick(name="training")
         self.logger.info("""Using model #%d\t%d inputs
