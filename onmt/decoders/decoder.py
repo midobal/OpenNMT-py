@@ -7,8 +7,6 @@ import onmt.models.stacked_rnn
 from onmt.utils.misc import aeq
 from onmt.utils.rnn_factory import rnn_factory
 
-import math
-
 
 class RNNDecoderBase(nn.Module):
     """
@@ -153,28 +151,31 @@ class RNNDecoderBase(nn.Module):
         :return alignments: statistical alignments `[tgt_len x batch x src_len]`.
         """
         alignments = torch.empty(tgt_len, batch_size, max(src_lengths), dtype=torch.float, requires_grad=False).cuda()
+        precision = torch.tensor(self.precision, dtype=torch.float, requires_grad=False).cuda()
 
         for batch in range(batch_size):
-            src_len = src_lengths[batch].item()
+            src_len = src_lengths[batch]
 
-            for i in range(tgt_len):
+            for n in range(tgt_len):
+                i = torch.tensor(n, dtype=torch.float, requires_grad=False).cuda()
 
-                for j in range(src_len):
+                for m in range(src_len):
+                    j = torch.tensor(m, dtype=torch.float, requires_grad=False).cuda()
 
                     if j == 0:
                         alignments[i][batch][j] = self.null_al
 
                     elif 0 < j <= src_len:
-                        r = math.exp(- self.precision / src_len)
-                        j_up = math.floor((i + 1) * src_len / tgt_len)
+                        r = torch.exp(- precision / src_len)
+                        j_up = torch.floor((i + 1) * src_len / tgt_len)
                         j_down = j_up + 1
                         h = - abs((i + 1) / tgt_len - (j + 1) / src_len)
                         h_up = - abs((i + 1) / tgt_len - j_up / src_len)
                         h_down = - abs((i + 1) / tgt_len - j_down / src_len)
                         alignments[i][batch][j] = (1 - self.null_al) * \
-                                           (math.e**(self.precision * h) /
-                                            (math.e**(self.precision * h_up * (1 - r**j_up) / (1 - r)) +
-                                             math.e**(self.precision * h_down * (1 - r**j_down) / (1 - r))))
+                                           (torch.e**(precision * h) /
+                                            (torch.e**(precision * h_up * (1 - r**j_up) / (1 - r)) +
+                                             torch.e**(precision * h_down * (1 - r**j_down) / (1 - r))))
 
                     else:
                         alignments[i][batch][j] = 0
