@@ -3,6 +3,7 @@ import argparse
 
 from flask import Flask, jsonify, request
 from onmt.translate import OLServer, OLServerModelError
+from sys import stderr
 
 STATUS_OK = "ok"
 STATUS_ERROR = "error"
@@ -26,6 +27,7 @@ def start(config_file,
     @app.route('/models', methods=['GET'])
     def get_models():
         out = translation_server.list_models()
+        stderr.write(str(out) + '\n')
         return jsonify(out)
 
     @app.route('/clone_model/<int:model_id>', methods=['POST'])
@@ -49,6 +51,7 @@ def start(config_file,
             out['model_id'] = model_id
             out['load_time'] = load_time
 
+        stderr.write(str(out) + '\n')
         return jsonify(out)
 
     @app.route('/unload_model/<int:model_id>', methods=['GET'])
@@ -62,6 +65,7 @@ def start(config_file,
             out['status'] = STATUS_ERROR
             out['error'] = str(e)
 
+        stderr.write(str(out) + '\n')
         return jsonify(out)
 
     @app.route('/translate', methods=['POST'])
@@ -81,6 +85,7 @@ def start(config_file,
             out['error'] = str(e)
             out['status'] = STATUS_ERROR
 
+        stderr.write(str(out) + '\n')
         return jsonify(out)
 
     @app.route('/train', methods=['POST'])
@@ -96,6 +101,7 @@ def start(config_file,
             out['error'] = str(e)
             out['status'] = STATUS_ERROR
 
+        stderr.write(str(out) + '\n')
         return jsonify(out)
 
     @app.route('/to_cpu/<int:model_id>', methods=['GET'])
@@ -104,6 +110,7 @@ def start(config_file,
         translation_server.models[model_id].to_cpu()
 
         out['status'] = STATUS_OK
+        stderr.write(str(out) + '\n')
         return jsonify(out)
 
     @app.route('/to_gpu/<int:model_id>', methods=['GET'])
@@ -112,6 +119,7 @@ def start(config_file,
         translation_server.models[model_id].to_gpu()
 
         out['status'] = STATUS_OK
+        stderr.write(str(out) + '\n')
         return jsonify(out)
 
     app.run(debug=debug, host=host, port=port, use_reloader=False,
