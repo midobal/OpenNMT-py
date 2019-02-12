@@ -154,31 +154,31 @@ class RNNDecoderBase(nn.Module):
         precision = torch.tensor(self.precision, dtype=torch.float, requires_grad=False).cuda()
 
         for batch in range(batch_size):
-            src_len = src_lengths[batch]
+            src_len = src_lengths[batch].type(torch.float)
 
             for n in range(tgt_len):
                 i = torch.tensor(n, dtype=torch.float, requires_grad=False).cuda()
 
-                for m in range(src_len):
+                for m in range(int(src_len)):
                     j = torch.tensor(m, dtype=torch.float, requires_grad=False).cuda()
 
-                    if j == 0:
-                        alignments[i][batch][j] = self.null_al
+                    if m == 0:
+                        alignments[n][batch][m] = self.null_al
 
-                    elif 0 < j <= src_len:
+                    elif 0 < m <= src_len:
                         r = torch.exp(- precision / src_len)
                         j_up = torch.floor((i + 1) * src_len / tgt_len)
                         j_down = j_up + 1
                         h = - abs((i + 1) / tgt_len - (j + 1) / src_len)
                         h_up = - abs((i + 1) / tgt_len - j_up / src_len)
                         h_down = - abs((i + 1) / tgt_len - j_down / src_len)
-                        alignments[i][batch][j] = (1 - self.null_al) * \
-                                           (torch.e**(precision * h) /
-                                            (torch.e**(precision * h_up * (1 - r**j_up) / (1 - r)) +
-                                             torch.e**(precision * h_down * (1 - r**j_down) / (1 - r))))
+                        alignments[n][batch][m] = (1 - self.null_al) * \
+                                           (torch.exp(precision * h) /
+                                            (torch.exp(precision * h_up * (1 - r**j_up) / (1 - r)) +
+                                             torch.exp(precision * h_down * (1 - r**j_down) / (1 - r))))
 
                     else:
-                        alignments[i][batch][j] = 0
+                        alignments[n][batch][m] = 0
 
         return alignments
 
