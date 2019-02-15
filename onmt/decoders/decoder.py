@@ -105,9 +105,9 @@ class RNNDecoderBase(nn.Module):
             self._copy = True
         self._reuse_copy_attn = reuse_copy_attn
 
-        self.alpha = alpha
-        self.null_al = null_al
-        self.precision = precision
+        self.alpha = torch.tensor(alpha, dtype=torch.float, requires_grad=False).cuda()
+        self.null_al = torch.tensor(null_al, dtype=torch.float, requires_grad=False).cuda()
+        self.precision = torch.tensor(precision, dtype=torch.float, requires_grad=False).cuda()
 
     def init_state(self, src, memory_bank, encoder_final):
         """ Init decoder state with last state of the encoder """
@@ -152,6 +152,7 @@ class RNNDecoderBase(nn.Module):
         """
         alignments = torch.empty(tgt_len, batch_size, max(src_lengths), dtype=torch.float, requires_grad=False).cuda()
         precision = torch.tensor(self.precision, dtype=torch.float, requires_grad=False).cuda()
+        one = torch.tensor(1, dtype=torch.float, requires_grad=False).cuda()
 
         for batch in range(batch_size):
             src_len = src_lengths[batch].type(torch.float)
@@ -166,16 +167,26 @@ class RNNDecoderBase(nn.Module):
                         alignments[n][batch][m] = self.null_al
 
                     elif 0 < m <= src_len:
-                        r = torch.exp(- precision / src_len)
-                        j_up = torch.floor((i + 1) * src_len / tgt_len)
-                        j_down = j_up + 1
-                        h = - abs((i + 1) / tgt_len - (j + 1) / src_len)
-                        h_up = - abs((i + 1) / tgt_len - j_up / src_len)
-                        h_down = - abs((i + 1) / tgt_len - j_down / src_len)
-                        alignments[n][batch][m] = (1 - self.null_al) * \
-                                           (torch.exp(precision * h) /
-                                            (torch.exp(precision * h_up * (1 - r**j_up) / (1 - r)) +
-                                             torch.exp(precision * h_down * (1 - r**j_down) / (1 - r))))
+                        r = torch.exp(torch.div(torch.neg(precision), src_len))
+                        j_up = torch.floor(torch.mul(torch.add(i, one), torch.div(src_len,  tgt_len)))
+                        j_down = torch.add(j_up,  one)
+                        h = torch.neg(torch.abs(torch.div(torch.add(torch.div(torch.add(i,  one), tgt_len),
+                                                            torch.neg(torch.add(j, one))), src_len)))
+                        h_up = torch.neg(torch.abs(torch.div(torch.add(torch.div(torch.add(i, one), tgt_len),
+                                                                    torch.neg(torch.add(j_up, one))), src_len)))
+                        h_down = torch.neg(torch.abs(torch.div(torch.add(torch.div(torch.add(i, one), tgt_len),
+                                                                    torch.neg(torch.add(j_down, one))), src_len)))
+                        alignments[n][batch][m] = torch.mul(torch.add(one, torch.neg(self.null_al)),
+                                                            torch.div(torch.exp(torch.mul(self.precision, h)),
+                                                                      torch.add(torch.exp(torch.mul(torch.mul(self.precision, h_up),
+                                                                                                    torch.div(torch.add(one, torch.neg(torch.pow(r, j_up))),
+                                                                                                              torch.add(one, torch.neg(r))))),
+                                                                                torch.exp(torch.mul(
+                                                                                    torch.mul(self.precision, h_down),
+                                                                                    torch.div(torch.add(one, torch.neg(
+                                                                                        torch.pow(r, j_down))),
+                                                                                              torch.add(one,
+                                                                                                        torch.neg(r))))))))
 
                     else:
                         alignments[n][batch][m] = 0
