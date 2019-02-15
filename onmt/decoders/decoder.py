@@ -221,7 +221,6 @@ class RNNDecoderBase(nn.Module):
                                   torch.mul(self.fa_alignments(attns['std'].size()[1],
                                                                torch.tensor([attns['std'].permute(1, 2, 0)[n][0].nonzero().size(0)
                                                                              for n in range(attns['std'].size()[1])]).cuda(),
-                                                               attns['std'].size()[0],
                                                                memory_lengths),
                                             (1 - self.alpha)))
 
