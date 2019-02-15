@@ -143,55 +143,35 @@ class RNNDecoderBase(nn.Module):
                                      for _ in self.state["hidden"]])
         self.state["input_feed"] = self.state["input_feed"].detach()
 
-    def fa_alignments(self, batch_size, tgt_len, src_lengths):
+    def fa_alignments(self, batch_size, tgt_lengths, src_lengths):
         """
         :param batch_size:
-        :param tgt_len:
+        :param tgt_lengths:
         :param src_lengths:
         :return alignments: statistical alignments `[tgt_len x batch x src_len]`.
         """
-        alignments = torch.empty(tgt_len, batch_size, max(src_lengths), dtype=torch.float, requires_grad=False).cuda()
-        precision = torch.tensor(self.precision, dtype=torch.float, requires_grad=False).cuda()
-        one = torch.tensor(1, dtype=torch.float, requires_grad=False).cuda()
+        alignments = torch.empty(batch_size, max(tgt_lengths), max(src_lengths),
+                                 dtype=torch.float, requires_grad=False).cuda()
 
         for batch in range(batch_size):
             src_len = src_lengths[batch].type(torch.float)
+            tgt_len = tgt_lengths[batch].type(torch.float)
+            a = torch.tensor([[n + 1 if n < src_len else 0 for m in range(int(max(src_lengths)))]
+                              for n in range(int(tgt_len))], dtype=torch.float, requires_grad=False).cuda()
+            j = torch.tensor([n + 1 if n < src_len else 0 for n in range(int(max(src_lengths)))],
+                             dtype=torch.float, requires_grad=False).cuda()
+            j_up = torch.floor(a * src_len / tgt_len)
+            j_down = j_up + 1
+            h = - torch.abs(a / tgt_len - j / src_len)
+            h_up = - torch.abs(a / tgt_len - j_up / src_len)
+            h_down = torch.abs(a / tgt_len - j_down / src_len)
+            r = torch.exp(- self.precision / tgt_len)
+            z = torch.exp(self.precision * h_up * (1 - torch.pow(r, j_up)) / (1 - r)) + \
+                torch.exp(self.precision * h_down * (1 - torch.pow(r, j_down)) / (1 - r))
 
-            for n in range(tgt_len):
-                i = torch.tensor(n, dtype=torch.float, requires_grad=False).cuda()
+            alignments[batch] = (1 - self.null_al) * torch.exp(self.precision * h) / z
 
-                for m in range(int(src_len)):
-                    j = torch.tensor(m, dtype=torch.float, requires_grad=False).cuda()
-
-                    if m == 0:
-                        alignments[n][batch][m] = self.null_al
-
-                    elif 0 < m <= src_len:
-                        r = torch.exp(torch.div(torch.neg(precision), src_len))
-                        j_up = torch.floor(torch.mul(torch.add(i, one), torch.div(src_len,  tgt_len)))
-                        j_down = torch.add(j_up,  one)
-                        h = torch.neg(torch.abs(torch.div(torch.add(torch.div(torch.add(i,  one), tgt_len),
-                                                            torch.neg(torch.add(j, one))), src_len)))
-                        h_up = torch.neg(torch.abs(torch.div(torch.add(torch.div(torch.add(i, one), tgt_len),
-                                                                    torch.neg(torch.add(j_up, one))), src_len)))
-                        h_down = torch.neg(torch.abs(torch.div(torch.add(torch.div(torch.add(i, one), tgt_len),
-                                                                    torch.neg(torch.add(j_down, one))), src_len)))
-                        alignments[n][batch][m] = torch.mul(torch.add(one, torch.neg(self.null_al)),
-                                                            torch.div(torch.exp(torch.mul(self.precision, h)),
-                                                                      torch.add(torch.exp(torch.mul(torch.mul(self.precision, h_up),
-                                                                                                    torch.div(torch.add(one, torch.neg(torch.pow(r, j_up))),
-                                                                                                              torch.add(one, torch.neg(r))))),
-                                                                                torch.exp(torch.mul(
-                                                                                    torch.mul(self.precision, h_down),
-                                                                                    torch.div(torch.add(one, torch.neg(
-                                                                                        torch.pow(r, j_down))),
-                                                                                              torch.add(one,
-                                                                                                        torch.neg(r))))))))
-
-                    else:
-                        alignments[n][batch][m] = 0
-
-        return alignments
+        return alignments.permute(1, 0, 2)
 
     def forward(self, tgt, memory_bank, memory_lengths=None,
                 step=None):
@@ -239,6 +219,8 @@ class RNNDecoderBase(nn.Module):
         # :math: `a_j^' = alpha a_j + (1 - alpha) fa_alignments`
         attns['std'] = torch.add(torch.mul(attns['std'], self.alpha),
                                   torch.mul(self.fa_alignments(attns['std'].size()[1],
+                                                               torch.tensor([attns['std'].permute(1, 2, 0)[n][0].nonzero().size(0)
+                                                                             for n in range(attns['std'].size()[1])]).cuda(),
                                                                attns['std'].size()[0],
                                                                memory_lengths),
                                             (1 - self.alpha)))
