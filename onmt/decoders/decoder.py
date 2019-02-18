@@ -59,7 +59,7 @@ class RNNDecoderBase(nn.Module):
                  hidden_size, attn_type="general", attn_func="softmax",
                  coverage_attn=False, context_gate=None,
                  copy_attn=False, dropout=0.0, embeddings=None,
-                 reuse_copy_attn=False, alpha=1.0, null_al=0.0, precision=3):
+                 reuse_copy_attn=False, alpha=1.0, null_al=0.8, precision=3):
         super(RNNDecoderBase, self).__init__()
 
         # Basic attributes.

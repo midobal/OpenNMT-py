@@ -485,7 +485,7 @@ def train_opts(parser):
     # Hybrid alignments
     group.add('--alpha', '-alpha', type=float, default=1.0,
               help="""Normalization factor""")
-    group.add('--null_al', '-null_al', type=float, default=0.0,
+    group.add('--null_al', '-null_al', type=float, default=0.8,
               help="""Null alignment probability""")
     group.add('--precision', '-precision', type=int, default=3,
               help="""Precision of the statistical alignments' probability""")
