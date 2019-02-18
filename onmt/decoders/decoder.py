@@ -217,12 +217,13 @@ class RNNDecoderBase(nn.Module):
 
         # Hybridize attention weights with statistical alignments
         # :math: `a_j^' = alpha a_j + (1 - alpha) fa_alignments`
-        attns['std'] = torch.add(torch.mul(attns['std'], self.alpha),
-                                  torch.mul(self.fa_alignments(attns['std'].size()[1],
-                                                               torch.tensor([attns['std'].permute(1, 2, 0)[n][0].nonzero().size(0)
-                                                                             for n in range(attns['std'].size()[1])]).cuda(),
-                                                               memory_lengths),
-                                            (1 - self.alpha)))
+        if 0 <= self.alpha < 1:
+            attns['std'] = torch.add(torch.mul(attns['std'], self.alpha),
+                                      torch.mul(self.fa_alignments(attns['std'].size()[1],
+                                                                   torch.tensor([attns['std'].permute(1, 2, 0)[n][0].nonzero().size(0)
+                                                                                 for n in range(attns['std'].size()[1])]).cuda(),
+                                                                   memory_lengths),
+                                                (1 - self.alpha)))
 
         # TODO change the way attns is returned dict => list or tuple (onnx)
         return dec_outs, attns
