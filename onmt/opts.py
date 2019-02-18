@@ -487,7 +487,7 @@ def train_opts(parser):
               help="""Normalization factor""")
     group.add('--null_al', '-null_al', type=float, default=0.8,
               help="""Null alignment probability""")
-    group.add('--precision', '-precision', type=int, default=4,
+    group.add('--precision', '-precision', type=float, default=4,
               help="""Precision of the statistical alignments' probability""")
 
 
