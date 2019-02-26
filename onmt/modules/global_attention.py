@@ -208,7 +208,11 @@ class GlobalAttention(nn.Module):
         # :math: `a_j^' = alpha a_j + (1 - alpha) fa_alignments`
         if 0 <= self.alpha < 1:
             align = torch.mul(align, self.alpha) + \
-                            torch.mul(self.fa_alignments(batch, tgt_len, tgt_n, memory_lengths), (1 - self.alpha))
+                            torch.mul(self.fa_alignments(batch, tgt_len, tgt_n,
+                                                         torch.tensor([[src_len] for src_len in memory_lengths],
+                                                                      dtype=torch.float,
+                                                                      requires_grad=False).cuda()),
+                                      (1 - self.alpha))
 
         if memory_lengths is not None:
             mask = sequence_mask(memory_lengths, max_len=align.size(-1))
