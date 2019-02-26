@@ -92,22 +92,20 @@ class RNNDecoderBase(nn.Module):
         self._coverage = coverage_attn
         self.attn = onmt.modules.GlobalAttention(
             hidden_size, coverage=coverage_attn,
-            attn_type=attn_type, attn_func=attn_func
+            attn_type=attn_type, attn_func=attn_func,
+            alpha=alpha, null_al=null_al, precision=precision
         )
 
         # Set up a separated copy attention layer, if needed.
         self._copy = False
         if copy_attn and not reuse_copy_attn:
             self.copy_attn = onmt.modules.GlobalAttention(
-                hidden_size, attn_type=attn_type, attn_func=attn_func
+                hidden_size, attn_type=attn_type, attn_func=attn_func,
+                alpha=alpha, null_al=null_al, precision=precision
             )
         if copy_attn:
             self._copy = True
         self._reuse_copy_attn = reuse_copy_attn
-
-        self.alpha = torch.tensor(alpha, dtype=torch.float, requires_grad=False).cuda()
-        self.null_al = torch.tensor(null_al, dtype=torch.float, requires_grad=False).cuda()
-        self.precision = torch.tensor(precision, dtype=torch.float, requires_grad=False).cuda()
 
     def init_state(self, src, memory_bank, encoder_final):
         """ Init decoder state with last state of the encoder """
@@ -142,36 +140,6 @@ class RNNDecoderBase(nn.Module):
         self.state["hidden"] = tuple([_.detach()
                                      for _ in self.state["hidden"]])
         self.state["input_feed"] = self.state["input_feed"].detach()
-
-    def fa_alignments(self, batch_size, tgt_lengths, src_lengths):
-        """
-        :param batch_size:
-        :param tgt_lengths:
-        :param src_lengths:
-        :return alignments: statistical alignments `[tgt_len x batch x src_len]`.
-        """
-        alignments = torch.empty(batch_size, max(tgt_lengths), max(src_lengths),
-                                 dtype=torch.float, requires_grad=False).cuda()
-
-        for batch in range(batch_size):
-            src_len = src_lengths[batch].type(torch.float)
-            tgt_len = tgt_lengths[batch].type(torch.float)
-            a = torch.tensor([[n + 1 if n < src_len else 0 for m in range(int(max(src_lengths)))]
-                              for n in range(int(tgt_len))], dtype=torch.float, requires_grad=False).cuda()
-            j = torch.tensor([n + 1 if n < src_len else 0 for n in range(int(max(src_lengths)))],
-                             dtype=torch.float, requires_grad=False).cuda()
-            j_up = torch.floor(a * src_len / tgt_len)
-            j_down = j_up + 1
-            h = - torch.abs(a / tgt_len - j / src_len)
-            h_up = - torch.abs(a / tgt_len - j_up / src_len)
-            h_down = torch.abs(a / tgt_len - j_down / src_len)
-            r = torch.exp(- self.precision / tgt_len)
-            z = torch.exp(self.precision * h_up * (1 - torch.pow(r, j_up)) / (1 - r)) + \
-                torch.exp(self.precision * h_down * (1 - torch.pow(r, j_down)) / (1 - r))
-
-            alignments[batch] = (1 - self.null_al) * torch.exp(self.precision * h) / z
-
-        return alignments.permute(1, 0, 2)
 
     def forward(self, tgt, memory_bank, memory_lengths=None,
                 step=None):
@@ -214,16 +182,6 @@ class RNNDecoderBase(nn.Module):
             for k in attns:
                 if type(attns[k]) == list:
                     attns[k] = torch.stack(attns[k])
-
-        # Hybridize attention weights with statistical alignments
-        # :math: `a_j^' = alpha a_j + (1 - alpha) fa_alignments`
-        if 0 <= self.alpha < 1:
-            attns['std'] = torch.add(torch.mul(attns['std'], self.alpha),
-                                      torch.mul(self.fa_alignments(attns['std'].size()[1],
-                                                                   torch.tensor([attns['std'].permute(1, 2, 0)[n][0].nonzero().size(0)
-                                                                                 for n in range(attns['std'].size()[1])]).cuda(),
-                                                                   memory_lengths),
-                                                (1 - self.alpha)))
 
         # TODO change the way attns is returned dict => list or tuple (onnx)
         return dec_outs, attns
@@ -374,6 +332,7 @@ class InputFeedRNNDecoder(RNNDecoderBase):
 
         # Input feed concatenates hidden state with
         # input at every time step.
+        tgt_n = 1
         for _, emb_t in enumerate(emb.split(1)):
             emb_t = emb_t.squeeze(0)
             decoder_input = torch.cat([emb_t, input_feed], 1)
@@ -381,6 +340,8 @@ class InputFeedRNNDecoder(RNNDecoderBase):
             decoder_output, p_attn = self.attn(
                 rnn_output,
                 memory_bank.transpose(0, 1),
+                tgt_n,
+                tgt.size()[0],
                 memory_lengths=memory_lengths)
             if self.context_gate is not None:
                 # TODO: context gate should be employed
@@ -403,10 +364,13 @@ class InputFeedRNNDecoder(RNNDecoderBase):
             # Run the forward pass of the copy attention layer.
             if self._copy and not self._reuse_copy_attn:
                 _, copy_attn = self.copy_attn(decoder_output,
-                                              memory_bank.transpose(0, 1))
+                                              memory_bank.transpose(0, 1),
+                                              tgt_n,
+                                              tgt.size()[0])
                 attns["copy"] += [copy_attn]
             elif self._copy:
                 attns["copy"] = attns["std"]
+            tgt_n += 1
         # Return result.
         return dec_state, dec_outs, attns
 

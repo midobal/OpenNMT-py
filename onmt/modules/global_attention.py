@@ -68,7 +68,7 @@ class GlobalAttention(nn.Module):
     """
 
     def __init__(self, dim, coverage=False, attn_type="dot",
-                 attn_func="softmax"):
+                 attn_func="softmax", alpha=1.0, null_al=0.8, precision=4):
         super(GlobalAttention, self).__init__()
 
         self.dim = dim
@@ -91,6 +91,10 @@ class GlobalAttention(nn.Module):
 
         if coverage:
             self.linear_cover = nn.Linear(1, dim, bias=False)
+
+        self.alpha = torch.tensor(alpha, dtype=torch.float, requires_grad=False).cuda()
+        self.null_al = torch.tensor(null_al, dtype=torch.float, requires_grad=False).cuda()
+        self.precision = torch.tensor(precision, dtype=torch.float, requires_grad=False).cuda()
 
     def score(self, h_t, h_s):
         """
@@ -135,12 +139,35 @@ class GlobalAttention(nn.Module):
 
             return self.v(wquh.view(-1, dim)).view(tgt_batch, tgt_len, src_len)
 
-    def forward(self, source, memory_bank, memory_lengths=None, coverage=None):
+    def fa_alignments(self, batch_size, tgt_len, tgt_n, src_lengths):
+        """
+        :param batch_size:
+        :param tgt_len:
+        :param tgt_n:
+        :param src_lengths:
+        :return alignments: statistical alignments `[batch x tgt_len x src_len]`.
+        """
+        j = torch.tensor([[n + 1 if n < src_lengths[batch] else 0 for n in range(int(max(src_lengths)))] for batch
+                          in range(batch_size)], dtype=torch.float, requires_grad=False).cuda()
+        j_up = torch.floor(tgt_n * src_lengths / tgt_len)
+        j_down = j_up + 1
+        h = - torch.abs(tgt_n / tgt_len - j / src_lengths)
+        h_up = - torch.abs(tgt_n / tgt_len - j_up / src_lengths)
+        h_down = torch.abs(tgt_n / tgt_len - j_down / src_lengths)
+        r = torch.exp(- self.precision / tgt_len)
+        z = torch.exp(self.precision * h_up * (1 - torch.pow(r, j_up)) / (1 - r)) + \
+                torch.exp(self.precision * h_down * (1 - torch.pow(r, j_down)) / (1 - r))
+
+        return (1 - self.null_al) * torch.exp(self.precision * h) / z
+
+    def forward(self, source, memory_bank, tgt_n, tgt_len, memory_lengths=None, coverage=None):
         """
 
         Args:
           source (`FloatTensor`): query vectors `[batch x tgt_len x dim]`
           memory_bank (`FloatTensor`): source vectors `[batch x src_len x dim]`
+          tgt_n (`int`): current target
+          tgt_len (`int`): target len
           memory_lengths (`LongTensor`): the source context lengths `[batch]`
           coverage (`FloatTensor`): None (not supported yet)
 
@@ -148,7 +175,7 @@ class GlobalAttention(nn.Module):
           (`FloatTensor`, `FloatTensor`):
 
           * Computed vector `[tgt_len x batch x dim]`
-          * Attention distribtutions for each query
+          * Attention distributions for each query
              `[tgt_len x batch x src_len]`
         """
 
@@ -176,6 +203,12 @@ class GlobalAttention(nn.Module):
 
         # compute attention scores, as in Luong et al.
         align = self.score(source, memory_bank)
+
+        # Hybridize attention weights with statistical alignments
+        # :math: `a_j^' = alpha a_j + (1 - alpha) fa_alignments`
+        if 0 <= self.alpha < 1:
+            align = torch.mul(align, self.alpha) + \
+                            torch.mul(self.fa_alignments(batch, tgt_len, tgt_n, memory_lengths), (1 - self.alpha))
 
         if memory_lengths is not None:
             mask = sequence_mask(memory_lengths, max_len=align.size(-1))
