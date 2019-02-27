@@ -147,13 +147,15 @@ class GlobalAttention(nn.Module):
         :param src_lengths:
         :return alignments: statistical alignments `[batch x tgt_len x src_len]`.
         """
-        j = torch.tensor([[n + 1 if n < src_lengths[batch] else 0 for n in range(int(max(src_lengths)))] for batch
+        sources = torch.tensor([[[src for n in range(int(max(src_lengths)))]] for src in src_lengths],
+                                                dtype=torch.float, requires_grad=False).cuda()
+        j = torch.tensor([[[n + 1 if n < src_lengths[batch] else 0 for n in range(int(max(src_lengths)))]] for batch
                           in range(batch_size)], dtype=torch.float, requires_grad=False).cuda()
-        j_up = torch.floor(tgt_n * src_lengths / tgt_len)
+        j_up = torch.floor(tgt_n * sources / tgt_len)
         j_down = j_up + 1
-        h = - torch.abs(tgt_n / tgt_len - j / src_lengths)
-        h_up = - torch.abs(tgt_n / tgt_len - j_up / src_lengths)
-        h_down = torch.abs(tgt_n / tgt_len - j_down / src_lengths)
+        h = - torch.abs(tgt_n / tgt_len - j / sources)
+        h_up = - torch.abs(tgt_n / tgt_len - j_up / sources)
+        h_down = torch.abs(tgt_n / tgt_len - j_down / sources)
         r = torch.exp(- self.precision / tgt_len)
         z = torch.exp(self.precision * h_up * (1 - torch.pow(r, j_up)) / (1 - r)) + \
                 torch.exp(self.precision * h_down * (1 - torch.pow(r, j_down)) / (1 - r))
