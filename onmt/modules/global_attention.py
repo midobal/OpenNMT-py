@@ -139,18 +139,18 @@ class GlobalAttention(nn.Module):
 
             return self.v(wquh.view(-1, dim)).view(tgt_batch, tgt_len, src_len)
 
-    def fa_alignments(self, batch_size, tgt_len, tgt_n, src_lengths):
+    def fa_alignments(self, batch_size, tgt_len, tgt_n, src_lengths, src_bank):
         """
         :param batch_size:
         :param tgt_len:
         :param tgt_n:
         :param src_lengths:
+        :param src_bank:
         :return alignments: statistical alignments `[batch x tgt_len x src_len]`.
         """
-        sources = torch.tensor([[[src for n in range(int(max(src_lengths)))]] for src in src_lengths],
-                                                dtype=torch.float, requires_grad=False).cuda()
-        j = torch.tensor([[[n + 1 if n < src_lengths[batch] else 0 for n in range(int(max(src_lengths)))]] for batch
-                          in range(batch_size)], dtype=torch.float, requires_grad=False).cuda()
+        src_len = max(src_lengths)
+        sources = src_lengths.reshape(batch_size, 1).repeat(1, src_len)
+        j = torch.ones(batch_size, src_len) * torch.arange(1.0, src_len + 1) * torch.ceil(src_bank[:, :, 1] / 99999999)
         j_up = torch.floor(tgt_n * sources / tgt_len)
         j_down = j_up + 1
         h = - torch.abs(tgt_n / tgt_len - j / sources)
@@ -210,11 +210,7 @@ class GlobalAttention(nn.Module):
         # :math: `a_j^' = alpha a_j + (1 - alpha) fa_alignments`
         if 0 <= self.alpha < 1:
             align = torch.mul(align, self.alpha) + \
-                            torch.mul(self.fa_alignments(batch, tgt_len, tgt_n,
-                                                         torch.tensor([[src_len] for src_len in memory_lengths],
-                                                                      dtype=torch.float,
-                                                                      requires_grad=False).cuda()),
-                                      (1 - self.alpha))
+                    torch.mul(self.fa_alignments(batch, tgt_len, tgt_n, memory_lengths, memory_bank), (1 - self.alpha))
 
         if memory_lengths is not None:
             mask = sequence_mask(memory_lengths, max_len=align.size(-1))
