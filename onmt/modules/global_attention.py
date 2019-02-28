@@ -149,8 +149,9 @@ class GlobalAttention(nn.Module):
         :return alignments: statistical alignments `[batch x tgt_len x src_len]`.
         """
         src_len = max(src_lengths)
-        sources = src_lengths.reshape(batch_size, 1).repeat(1, src_len)
-        j = torch.ones(batch_size, src_len) * torch.arange(1.0, src_len + 1) * torch.ceil(src_bank[:, :, 1] / 99999999)
+        sources = src_lengths.reshape(batch_size, 1).repeat(1, src_len).float().cuda()
+        j = torch.ones(batch_size, src_len).cuda() * torch.arange(1.0, src_len + 1).cuda() * \
+            torch.ceil(src_bank[:, :, 1] / 99999999)
         j_up = torch.floor(tgt_n * sources / tgt_len)
         j_down = j_up + 1
         h = - torch.abs(tgt_n / tgt_len - j / sources)
@@ -160,7 +161,9 @@ class GlobalAttention(nn.Module):
         z = torch.exp(self.precision * h_up * (1 - torch.pow(r, j_up)) / (1 - r)) + \
                 torch.exp(self.precision * h_down * (1 - torch.pow(r, j_down)) / (1 - r))
 
-        return (1 - self.null_al) * torch.exp(self.precision * h) / z
+        alignments = (1 - self.null_al) * torch.exp(self.precision * h) / z
+
+        return alignments[:, None, :]
 
     def forward(self, source, memory_bank, tgt_n, tgt_len, memory_lengths=None, coverage=None):
         """
