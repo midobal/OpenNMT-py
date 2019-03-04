@@ -209,23 +209,35 @@ class GlobalAttention(nn.Module):
         # compute attention scores, as in Luong et al.
         align = self.score(source, memory_bank)
 
-        # Hybridize attention weights with statistical alignments
-        # :math: `a_j^' = alpha a_j + (1 - alpha) fa_alignments`
+        # Compute statistical alignments
         if 0 <= self.alpha < 1:
-            align = torch.mul(align, self.alpha) + \
-                    torch.mul(self.fa_alignments(batch, tgt_len, tgt_n, memory_lengths, memory_bank), (1 - self.alpha))
+            stat_align = self.fa_alignments(batch, tgt_len, tgt_n, memory_lengths, memory_bank)
 
         if memory_lengths is not None:
             mask = sequence_mask(memory_lengths, max_len=align.size(-1))
             mask = mask.unsqueeze(1)  # Make it broadcastable.
             align.masked_fill_(1 - mask, -float('inf'))
+            if 0 <= self.alpha < 1:
+                stat_align.masked_fill_(1 - mask, -float('inf'))
 
         # Softmax or sparsemax to normalize attention weights
         if self.attn_func == "softmax":
             align_vectors = F.softmax(align.view(batch*target_l, source_l), -1)
+            if 0 <= self.alpha < 1:
+                stat_align_vectors = F.softmax(stat_align.view(batch * target_l, source_l), -1)
         else:
             align_vectors = sparsemax(align.view(batch*target_l, source_l), -1)
+            if 0 <= self.alpha < 1:
+                stat_align_vectors = sparsemax(stat_align.view(batch * target_l, source_l), -1)
+
         align_vectors = align_vectors.view(batch, target_l, source_l)
+        if 0 <= self.alpha < 1:
+            stat_align_vectors = stat_align_vectors.view(batch, target_l, source_l)
+
+        # Hybridize attention weights with statistical alignments
+        # :math: `a_j^' = alpha a_j + (1 - alpha) fa_alignments`
+        if 0 <= self.alpha < 1:
+            align_vectors = torch.mul(align_vectors, self.alpha) + torch.mul(stat_align_vectors, (1 - self.alpha))
 
         # each context vector c_t is the weighted average
         # over all the source hidden states
