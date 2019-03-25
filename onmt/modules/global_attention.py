@@ -157,7 +157,7 @@ class GlobalAttention(nn.Module):
         h = - torch.abs(tgt_n / tgt_len - j / sources)
         h_up = - torch.abs(tgt_n / tgt_len - j_up / sources)
         h_down = torch.abs(tgt_n / tgt_len - j_down / sources)
-        r = torch.exp(- self.precision / tgt_len)
+        r = torch.exp(- self.precision / src_len)
         z = torch.exp(self.precision * h_up * (1 - torch.pow(r, j_up)) / (1 - r)) + \
                 torch.exp(self.precision * h_down * (1 - torch.pow(r, j_down)) / (1 - r))
 
