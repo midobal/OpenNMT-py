@@ -2,11 +2,15 @@
 from onmt.translate.translator import Translator
 from onmt.translate.translation import Translation, TranslationBuilder
 from onmt.translate.beam import Beam, GNMTGlobalScorer
+from onmt.translate.beam_search import BeamSearch
+from onmt.translate.decode_strategy import DecodeStrategy
+from onmt.translate.random_sampling import RandomSampling
 from onmt.translate.penalties import PenaltyBuilder
 from onmt.translate.translation_server import TranslationServer, \
     ServerModelError
 from onmt.translate.translation_OLserver import OLServer, OLServerModelError
 
-__all__ = ['Translator', 'Translation', 'Beam',
+__all__ = ['Translator', 'Translation', 'Beam', 'BeamSearch',
            'GNMTGlobalScorer', 'TranslationBuilder',
-           'PenaltyBuilder', 'TranslationServer', 'ServerModelError', 'OLServer', 'OLServerModelError']
+           'PenaltyBuilder', 'TranslationServer', 'ServerModelError', 'OLServer', 'OLServerModelError',
+           "DecodeStrategy", "RandomSampling"]

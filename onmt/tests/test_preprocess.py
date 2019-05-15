@@ -2,15 +2,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-import argparse
+import configargparse
 import copy
 import unittest
 import glob
 import os
 import codecs
-from collections import Counter
-
-import torchtext
 
 import onmt
 import onmt.inputters
@@ -18,7 +15,7 @@ import onmt.opts
 import preprocess
 
 
-parser = argparse.ArgumentParser(description='preprocess.py')
+parser = configargparse.ArgumentParser(description='preprocess.py')
 onmt.opts.preprocess_opts(parser)
 
 SAVE_DATA_PREFIX = 'data/test_preprocess'
@@ -50,11 +47,15 @@ class TestData(unittest.TestCase):
             with codecs.open(opt.tgt_vocab, 'w', 'utf-8') as f:
                 f.write('a\nb\nc\nd\ne\nf\n')
 
-        train_data_files = preprocess.build_save_dataset('train', fields, opt)
+        src_reader = onmt.inputters.str2reader[opt.data_type].from_opt(opt)
+        tgt_reader = onmt.inputters.str2reader["text"].from_opt(opt)
+        train_data_files = preprocess.build_save_dataset(
+            'train', fields, src_reader, tgt_reader, opt)
 
         preprocess.build_save_vocab(train_data_files, fields, opt)
 
-        preprocess.build_save_dataset('valid', fields, opt)
+        preprocess.build_save_dataset(
+            'valid', fields, src_reader, tgt_reader, opt)
 
         # Remove the generated *pt files.
         for pt in glob.glob(SAVE_DATA_PREFIX + '*.pt'):
@@ -63,18 +64,6 @@ class TestData(unittest.TestCase):
             os.remove(opt.src_vocab)
         if hasattr(opt, 'tgt_vocab') and os.path.exists(opt.tgt_vocab):
             os.remove(opt.tgt_vocab)
-
-    def test_merge_vocab(self):
-        va = torchtext.vocab.Vocab(Counter('abbccc'))
-        vb = torchtext.vocab.Vocab(Counter('eeabbcccf'))
-
-        merged = onmt.inputters.merge_vocabs([va, vb], 2)
-
-        self.assertEqual(Counter({'c': 6, 'b': 4, 'a': 2, 'e': 2, 'f': 1}),
-                         merged.freqs)
-        # 4 specicials + 2 words (since we pass 2 to merge_vocabs)
-        self.assertEqual(6, len(merged.itos))
-        self.assertTrue('b' in merged.itos)
 
 
 def _add_test(param_setting, methodname):
@@ -108,12 +97,12 @@ test_databuild = [[],
                    ('tgt_vocab_size', 1)],
                   [('src_vocab_size', 10000),
                    ('tgt_vocab_size', 10000)],
-                  [('src_seq_length', 1)],
-                  [('src_seq_length', 5000)],
+                  [('src_seq_len', 1)],
+                  [('src_seq_len', 5000)],
                   [('src_seq_length_trunc', 1)],
                   [('src_seq_length_trunc', 5000)],
-                  [('tgt_seq_length', 1)],
-                  [('tgt_seq_length', 5000)],
+                  [('tgt_seq_len', 1)],
+                  [('tgt_seq_len', 5000)],
                   [('tgt_seq_length_trunc', 1)],
                   [('tgt_seq_length_trunc', 5000)],
                   [('shuffle', 0)],
@@ -123,7 +112,7 @@ test_databuild = [[],
                   [('dynamic_dict', True),
                    ('share_vocab', True)],
                   [('dynamic_dict', True),
-                   ('max_shard_size', 500000)],
+                   ('shard_size', 500000)],
                   [('src_vocab', '/tmp/src_vocab.txt'),
                    ('tgt_vocab', '/tmp/tgt_vocab.txt')],
                   ]
@@ -135,8 +124,8 @@ for p in test_databuild:
 test_databuild = [[],
                   [('tgt_vocab_size', 1)],
                   [('tgt_vocab_size', 10000)],
-                  [('tgt_seq_length', 1)],
-                  [('tgt_seq_length', 5000)],
+                  [('tgt_seq_len', 1)],
+                  [('tgt_seq_len', 5000)],
                   [('tgt_seq_length_trunc', 1)],
                   [('tgt_seq_length_trunc', 5000)],
                   [('shuffle', 0)],
@@ -159,12 +148,12 @@ for p in test_databuild:
 test_databuild = [[],
                   [('tgt_vocab_size', 1)],
                   [('tgt_vocab_size', 10000)],
-                  [('src_seq_length', 1)],
-                  [('src_seq_length', 5000)],
+                  [('src_seq_len', 1)],
+                  [('src_seq_len', 5000)],
                   [('src_seq_length_trunc', 3200)],
                   [('src_seq_length_trunc', 5000)],
-                  [('tgt_seq_length', 1)],
-                  [('tgt_seq_length', 5000)],
+                  [('tgt_seq_len', 1)],
+                  [('tgt_seq_len', 5000)],
                   [('tgt_seq_length_trunc', 1)],
                   [('tgt_seq_length_trunc', 5000)],
                   [('shuffle', 0)],

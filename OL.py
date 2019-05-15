@@ -12,37 +12,41 @@ import codecs
 
 import onmt.opts as opts
 import onmt.utils.distributed
-import onmt.inputters as inputters
 
 from onmt.train_single import main as single_main
-from onmt.inputters.inputter import build_dataset_iter, lazily_load_dataset, \
-    _load_fields, _collect_report_features
+from onmt.train_single import configure_process
+from onmt.utils.parse import ArgumentParser
+from onmt.inputters.inputter import build_dataset_iter, load_old_vocab, old_style_vocab
 from onmt.model_builder import build_model
-from onmt.utils.optimizers import build_optim
+from onmt.utils.optimizers import Optimizer
 from onmt.trainer import build_trainer
 from onmt.models import build_model_saver
 from onmt.utils.logging import init_logger, logger
-from onmt.train_single import training_opt_postprocessing, _tally_parameters, _check_save_model_path
+from onmt.train_single import _tally_parameters, _check_save_model_path
 from onmt.translate.translator import Translator
 
 
 def load_model(opt, device_id):
 
-    opt = training_opt_postprocessing(opt, device_id)
+    configure_process(opt, device_id)
     init_logger(opt.log_file)
 
     # Load model.
     logger.info('Loading checkpoint from %s' % opt.models[0])
     checkpoint = torch.load(opt.models[0], map_location=lambda storage, loc: storage)
-    model_opt = checkpoint['opt']
+    model_opt = ArgumentParser.ckpt_model_opts(checkpoint["opt"])
+    ArgumentParser.update_model_opts(model_opt)
+    ArgumentParser.validate_model_opts(model_opt)
+    logger.info('Loading vocab from checkpoint at %s.' % opt.train_from)
+    vocab = checkpoint['vocab']
 
-    # Peek the first dataset to determine the data_type.
-    # (All datasets have the same data_type).
-    first_dataset = next(lazily_load_dataset("train", opt))
-    data_type = first_dataset.data_type
-
-    # Load fields generated from preprocess phase.
-    fields = _load_fields(first_dataset, data_type, opt, checkpoint)
+    # check for code where vocab is saved instead of fields
+    # (in the future this will be done in a smarter way)
+    if old_style_vocab(vocab):
+        fields = load_old_vocab(
+            vocab, opt.model_type, dynamic_dict=opt.copy_attn)
+    else:
+        fields = vocab
 
     # Build model.
     model = build_model(model_opt, opt, fields, checkpoint)
@@ -53,13 +57,12 @@ def load_model(opt, device_id):
     _check_save_model_path(opt)
 
     # Build optimizer.
-    optim = build_optim(model, opt, checkpoint)
+    optim = Optimizer.from_opt(model, opt, checkpoint=checkpoint)
 
     # Build model saver
     model_saver = build_model_saver(model_opt, opt, model, fields, optim)
 
-    return build_trainer(opt, device_id, model, fields,
-                            optim, data_type, model_saver=model_saver), fields, data_type, model, model_opt
+    return build_trainer(opt, device_id, model, fields, optim, model_saver=model_saver), fields, model, model_opt
 
 
 def build_translator(model, fields, opt, model_opt, out_file):
@@ -79,48 +82,31 @@ def build_translator(model, fields, opt, model_opt, out_file):
                       **kwargs)
 
 
-def train(src, tgt, trainer, fields, data_type, cur_device, n, opt):
+def train(trainer, fields, n, opt):
+    train_iter = build_dataset_iter("train", fields, opt)
+    valid_iter = build_dataset_iter("valid", fields, opt, is_train=False)
 
-    data = inputters. \
-        build_dataset(fields,
-                      data_type,
-                      src_path=None,
-                      src_data_iter=[src],
-                      tgt_path=None,
-                      tgt_data_iter=[tgt],
-                      src_dir=opt.src_dir,
-                      sample_rate=16000,
-                      window_size=.02,
-                      window_stride=.01,
-                      window='hamming',
-                      use_filter_pred=False,
-                      image_channel_size=3)
-
-    def train_iter_fct():
-        return inputters.OrderedIterator(
-            dataset=data, device=cur_device,
-            batch_size=opt.batch_size, train=False, sort=False,
-            sort_within_batch=True, shuffle=False)
-
-    # Do training.
     if len(opt.gpu_ranks):
         logger.info('Starting training on GPU: %s' % opt.gpu_ranks)
     else:
         logger.info('Starting training on CPU, could be very slow')
-    trainer.train(train_iter_fct, None, opt.train_steps + n,
-                  opt.valid_steps)
+
+    trainer.train(
+        train_iter,
+        opt.train_steps + n,
+        save_checkpoint_steps=opt.save_checkpoint_steps,
+        valid_iter=valid_iter,
+        valid_steps=opt.valid_steps)
 
 
 def main(opt):
 
     if len(opt.gpu_ranks) == 1:  # case 1 GPU only
         device_id = 0
-        cur_device = "cuda"
     else:   # case only CPU
         device_id = -1
-        cur_device = "cpu"
 
-    trainer, fields, data_type, model, model_opt = load_model(opt, device_id)
+    trainer, fields, model, model_opt = load_model(opt, device_id)
 
     out_file = codecs.open(opt.output, 'w+', 'utf-8')
 
@@ -145,7 +131,7 @@ def main(opt):
                              attn_debug=opt.attn_debug)
 
         for updates in range(opt.ol_updates):
-            train(src[n_line], tgt[n_line], trainer, fields, data_type, cur_device, steps, opt)
+            train(trainer, fields, steps, opt)
             steps += 1
 
     if opt.tensorboard:
