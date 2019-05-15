@@ -612,11 +612,12 @@ def OL_opts(parser):
     group.add_argument('-normalization', default='sents',
                        choices=["sents", "tokens"],
                        help='Normalization method of the gradient.')
-    group.add_argument('-accum_count', type=int, default=1,
-                       help="""Accumulate gradient this many times.
-                       Approximately equivalent to updating
-                       batch_size * accum_count batches at once.
-                       Recommended for Transformer.""")
+    group.add('--accum_count', '-accum_count', type=int, nargs='+',
+              default=[1],
+              help="Accumulate gradient this many times. "
+                   "Approximately equivalent to updating "
+                   "batch_size * accum_count batches at once. "
+                   "Recommended for Transformer.")
     group.add('--accum_steps', '-accum_steps', type=int, nargs='+',
               default=[0], help="Steps at which accum_count values change")
     group.add_argument('-valid_steps', type=int, default=10000,
