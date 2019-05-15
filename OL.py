@@ -195,7 +195,7 @@ if __name__ == "__main__":
         description='OL.py',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    opts.add_md_help_argument(parser)
+    opts.config_opts(parser)
     opts.model_opts(parser)
     opts.OL_opts(parser)
 
