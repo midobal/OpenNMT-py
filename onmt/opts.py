@@ -617,6 +617,8 @@ def OL_opts(parser):
                        Approximately equivalent to updating
                        batch_size * accum_count batches at once.
                        Recommended for Transformer.""")
+    group.add('--accum_steps', '-accum_steps', type=int, nargs='+',
+              default=[0], help="Steps at which accum_count values change")
     group.add_argument('-valid_steps', type=int, default=10000,
                        help='Perfom validation every X steps')
     group.add_argument('-valid_batch_size', type=int, default=32,
@@ -629,6 +631,11 @@ def OL_opts(parser):
                        help='Number of training steps. This value should not be changed.')
     group.add_argument('-epochs', type=int, default=0,
                        help='Deprecated epochs see train_steps')
+    group.add('--early_stopping', '-early_stopping', type=int, default=0,
+              help='Number of validation steps without improving.')
+    group.add('--early_stopping_criteria', '-early_stopping_criteria',
+              nargs="*", default=None,
+              help='Criteria to use for early stopping.')
     group.add_argument('-optim', default='sgd',
                        choices=['sgd', 'adagrad', 'adadelta', 'adam',
                                 'sparseadam'],
@@ -671,6 +678,17 @@ def OL_opts(parser):
                        Set to zero to turn off label smoothing.
                        For more detailed information, see:
                        https://arxiv.org/abs/1512.00567""")
+    group.add('--average_decay', '-average_decay', type=float, default=0,
+              help="Moving average decay. "
+                   "Set to other than 0 (e.g. 1e-4) to activate. "
+                   "Similar to Marian NMT implementation: "
+                   "http://www.aclweb.org/anthology/P18-4020 "
+                   "For more detail on Exponential Moving Average: "
+                   "https://en.wikipedia.org/wiki/Moving_average")
+    group.add('--average_every', '-average_every', type=int, default=1,
+              help="Step for moving average. "
+                   "Default is every update, "
+                   "if -average_decay is set.")
     # learning rate
     group = parser.add_argument_group('Optimization- Rate')
     group.add_argument('-learning_rate', type=float, default=1.0,
