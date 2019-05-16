@@ -630,6 +630,8 @@ def OL_opts(parser):
                         uses more memory.""")
     group.add_argument('-train_steps', type=int, default=1,
                        help='Number of training steps. This value should not be changed.')
+    group.add('--single_pass', '-single_pass', action='store_true',
+              help="Make a single pass over the training dataset.")
     group.add_argument('-epochs', type=int, default=0,
                        help='Deprecated epochs see train_steps')
     group.add('--early_stopping', '-early_stopping', type=int, default=0,
@@ -760,6 +762,8 @@ def OL_opts(parser):
     group.add_argument('-report_rouge', action='store_true',
                        help="""Report rouge 1/2/3/L/SU4 score after translation
                            call tools/test_rouge.py on command line""")
+    group.add('--report_time', '-report_time', action='store_true',
+              help="Report some translation time metrics")
 
     # Options most relevant to summarization.
     group.add_argument('-dynamic_dict', action='store_true',
@@ -767,10 +771,20 @@ def OL_opts(parser):
     group.add_argument('-share_vocab', action='store_true',
                        help="Share source and target vocabulary")
 
+    group = parser.add_argument_group('Random Sampling')
+    group.add('--random_sampling_topk', '-random_sampling_topk',
+              default=1, type=int,
+              help="Set this to -1 to do random sampling from full "
+                   "distribution. Set this to value k>1 to do random "
+                   "sampling restricted to the k most likely next tokens. "
+                   "Set this to 1 to use argmax or for doing beam "
+                   "search.")
+    group.add('--random_sampling_temp', '-random_sampling_temp',
+              default=1., type=float,
+              help="If doing random sampling, divide the logits by "
+                   "this before computing softmax during decoding.")
+
     group = parser.add_argument_group('Beam')
-    group.add_argument('-fast', action="store_true",
-                       help="""Use fast beam search (some features may not be
-                           supported!)""")
     group.add_argument('-beam_size', type=int, default=5,
                        help='Beam size')
     group.add_argument('-min_length', type=int, default=0,
@@ -788,6 +802,8 @@ def OL_opts(parser):
     group.add_argument('-length_penalty', default='none',
                        choices=['none', 'wu', 'avg'],
                        help="""Length Penalty to use.""")
+    group.add('--ratio', '-ratio', type=float, default=-0.,
+              help="Ratio based beam stop condition")
     group.add_argument('-coverage_penalty', default='none',
                        choices=['none', 'wu', 'summary'],
                        help="""Coverage Penalty to use.""")
@@ -810,6 +826,12 @@ def OL_opts(parser):
                            target token. If it is not provided(or the identified
                            source token does not exist in the table) then it
                            will copy the source token""")
+    group.add('--phrase_table', '-phrase_table', type=str, default="",
+              help="If phrase_table is provided (with replace_unk), it will "
+                   "look up the identified source token and give the "
+                   "corresponding target token. If it is not provided "
+                   "(or the identified source token does not exist in "
+                   "the table), then it will copy the source token.")
 
     group = parser.add_argument_group('Logging')
     group.add_argument('-verbose', action="store_true",

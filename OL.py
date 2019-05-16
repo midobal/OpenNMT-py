@@ -67,19 +67,16 @@ def load_model(opt, device_id):
 
 def build_translator(model, fields, opt, model_opt, out_file):
 
-    kwargs = {k: getattr(opt, k)
-              for k in ["beam_size", "n_best", "max_length", "min_length",
-                        "stepwise_penalty", "block_ngram_repeat",
-                        "ignore_when_blocking", "dump_beam", "report_bleu",
-                        "data_type", "replace_unk", "gpu", "verbose", "fast",
-                        "sample_rate", "window_size", "window_stride",
-                        "window", "image_channel_size"]}
-
-    return Translator(model, fields, global_scorer=onmt.translate.GNMTGlobalScorer(opt.alpha,
-                      opt.beta, opt.coverage_penalty, opt.length_penalty),
-                      out_file = out_file, report_score=True,
-                      copy_attn=model_opt.copy_attn, logger=logger,
-                      **kwargs)
+    return Translator.from_opt(
+        model,
+        fields,
+        opt,
+        model_opt,
+        global_scorer=onmt.translate.GNMTGlobalScorer.from_opt(opt),
+        out_file=out_file,
+        report_score=True,
+        logger=logger
+    )
 
 
 def train(trainer, fields, n, opt):
@@ -123,9 +120,8 @@ def main(opt):
 
         logger.info('Processing line %s.' % n_line)
 
-        translator.translate(src_path=None,
-                             src_data_iter=[src[n_line]],
-                             tgt_path=None,
+        translator.translate(src=[src[n_line]],
+                             tgt=None,
                              src_dir=None,
                              batch_size=opt.batch_size,
                              attn_debug=opt.attn_debug)
