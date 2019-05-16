@@ -222,7 +222,7 @@ class ServerModel:
         prec_argv = sys.argv
         sys.argv = sys.argv[:1]
         parser = argparse.ArgumentParser()
-        onmt.opts.add_md_help_argument(parser)
+        onmt.opts.config_opts(parser)
         onmt.opts.model_opts(parser)
         onmt.opts.OL_opts(parser)
 
@@ -267,8 +267,7 @@ class ServerModel:
         timer.start()
 
         try:
-            self.trainer, self.fields, self.data_type, self.model, self.model_opt = load_OLmodel(self.opt,
-                                                                                                 self.device_id)
+            self.trainer, self.fields, self.model, self.model_opt = load_OLmodel(self.opt, self.device_id)
 
         except RuntimeError as e:
             raise OLServerModelError("Runtime Error: %s" % str(e))
