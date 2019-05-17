@@ -98,7 +98,8 @@ def train(src, tgt, trainer, fields, n, opt):
     # Temporal solution that stores the sentence into /tmp/OL_dataset.pt
     create_dataset(src, tgt, fields, opt)
 
-    train_iter = DatasetLazyIter("/tmp/OL_dataset.pt", fields, opt.batch_size, max_tok_len,
+    train_iter = DatasetLazyIter(["/tmp/OL_dataset.pt"], fields, opt.batch_size,
+                                 max_tok_len if opt.batch_type == "tokens" else None,
                                  8 if opt.model_dtype == "fp16" else 1, "cuda" if opt.gpu_ranks else "cpu",
                                  True, repeat=not opt.single_pass, num_batches_multiple=max(opt.accum_count)
                                                                                         * opt.world_size)
