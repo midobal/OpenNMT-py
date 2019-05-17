@@ -397,7 +397,7 @@ class ServerModel:
         if len(texts_to_translate) > 0:
             try:
                 scores, predictions = self.translator.translate(
-                    src_data_iter=texts_to_translate,
+                    src=texts_to_translate,
                     batch_size=self.opt.batch_size)
             except RuntimeError as e:
                 raise OLServerModelError("Runtime Error: %s" % str(e))
