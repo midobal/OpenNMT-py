@@ -256,6 +256,11 @@ class ServerModel:
     def load(self):
         self.loading_lock.clear()
 
+        # Ensure gpu consistency between training and translating.
+        if (self.opt.gpu_ranks == [0] and self.opt.gpu != 0) or (self.opt.gpu_ranks != [0] and self.opt.gpu == 0):
+            self.opt.gpu_ranks = [0]
+            self.opt.gpu = 0
+
         if len(self.opt.gpu_ranks) == 1:  # case 1 GPU only
             self.device_id = 0
             self.cur_device = "cuda"

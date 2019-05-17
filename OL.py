@@ -127,6 +127,11 @@ def get_target(tgt, line):
 
 def main(opt):
 
+    # Ensure gpu consistency between training and translating.
+    if (opt.gpu_ranks == [0] and opt.gpu != 0) or (opt.gpu_ranks != [0] and opt.gpu == 0):
+        opt.gpu_ranks = [0]
+        opt.gpu = 0
+
     if len(opt.gpu_ranks) == 1:  # case 1 GPU only
         device_id = 0
     else:   # case only CPU
