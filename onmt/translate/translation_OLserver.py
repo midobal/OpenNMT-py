@@ -16,6 +16,7 @@ from onmt.utils.logging import init_logger
 from OL import build_translator as build_OLtranslator
 from OL import load_model as load_OLmodel
 from OL import train as OLtrain
+from OL import get_target, get_source
 
 from sacremoses import MosesTokenizer, MosesDetokenizer
 from tools.apply_bpe import BPE
@@ -505,11 +506,9 @@ class ServerModel:
 
         if sources != [] and targets != []:
             for n in range(len(sources)):
-                src = sources[n]
-                tgt = targets[n]
                 for updates in range(self.opt.ol_updates):
                     try:
-                        OLtrain(src, tgt, self.trainer, self.fields, self.data_type, self.cur_device,
+                        OLtrain(get_source(sources, n), get_target(targets, n), self.trainer, self.fields,
                                 self.trained_sentences, self.opt)
                         self.trained_sentences += 1
                     except RuntimeError as e:
