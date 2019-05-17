@@ -116,6 +116,14 @@ def train(src, tgt, trainer, fields, n, opt):
         valid_steps=opt.valid_steps)
 
 
+def get_source(src, line):
+    yield src[line]
+
+
+def get_target(tgt, line):
+    yield tgt[line]
+
+
 def main(opt):
 
     if len(opt.gpu_ranks) == 1:  # case 1 GPU only
@@ -147,7 +155,7 @@ def main(opt):
                              attn_debug=opt.attn_debug)
 
         for updates in range(opt.ol_updates):
-            train(src[n_line], tgt[n_line], trainer, fields, steps, opt)
+            train(get_source(src, n_line), get_target(tgt, n_line), trainer, fields, steps, opt)
             steps += 1
 
     if opt.tensorboard:
