@@ -604,6 +604,65 @@ class DatasetLazyIter(object):
                         return
 
 
+class OLDatasetLazyIter(object):
+    """Yield data from sharded dataset.
+
+    Args:
+        dataset: dataset.
+        fields (dict[str, Field]): fields dict for the
+            datasets.
+        batch_size (int): batch size.
+        batch_size_fn: custom batch process function.
+        device: See :class:`OrderedIterator` ``device``.
+        is_train (bool): train or valid?
+    """
+
+    def __init__(self, dataset, fields, batch_size, batch_size_fn,
+                 batch_size_multiple, device, is_train, repeat=True,
+                 num_batches_multiple=1):
+        self.dataset = dataset
+        self.fields = fields
+        self.batch_size = batch_size
+        self.batch_size_fn = batch_size_fn
+        self.batch_size_multiple = batch_size_multiple
+        self.device = device
+        self.is_train = is_train
+        self.repeat = repeat
+        self.num_batches_multiple = num_batches_multiple
+
+    def _iter_dataset(self):
+        cur_iter = OrderedIterator(
+            dataset=self.dataset,
+            batch_size=self.batch_size,
+            batch_size_multiple=self.batch_size_multiple,
+            batch_size_fn=self.batch_size_fn,
+            device=self.device,
+            train=self.is_train,
+            sort=False,
+            sort_within_batch=True,
+            repeat=False
+        )
+        for batch in cur_iter:
+            yield batch
+
+    def __iter__(self):
+        num_batches = 0
+        for batch in self._iter_dataset():
+            yield batch
+            num_batches += 1
+        if self.is_train and not self.repeat and \
+           num_batches % self.num_batches_multiple != 0:
+            # When the dataset is not repeated, we might need to ensure that
+            # the number of returned batches is the multiple of a given value.
+            # This is important for multi GPU training to ensure that all
+            # workers have the same number of batches to process.
+            for batch in self._iter_dataset():
+                yield batch
+                num_batches += 1
+                if num_batches % self.num_batches_multiple == 0:
+                    return
+
+
 def max_tok_len(new, count, sofar):
     """
     In token batching scheme, the number of sequences is limited

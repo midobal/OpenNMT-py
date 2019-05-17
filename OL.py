@@ -16,7 +16,7 @@ import onmt.utils.distributed
 from onmt.train_single import main as single_main
 from onmt.train_single import configure_process
 from onmt.utils.parse import ArgumentParser
-from onmt.inputters.inputter import DatasetLazyIter, load_old_vocab, old_style_vocab, max_tok_len
+from onmt.inputters.inputter import OLDatasetLazyIter, load_old_vocab, old_style_vocab, max_tok_len
 from onmt.model_builder import build_model
 from onmt.utils.optimizers import Optimizer
 from onmt.trainer import build_trainer
@@ -82,7 +82,6 @@ def build_translator(model, fields, opt, model_opt, out_file):
 
 
 def create_dataset(src, tgt, fields, opt):
-    # Temporal solution that stores the sentence into /tmp/OL_dataset.pt
     dataset = Dataset(
             fields,
             readers=[inputters.str2reader["text"].from_opt(opt), inputters.str2reader["text"].from_opt(opt)],
@@ -91,14 +90,13 @@ def create_dataset(src, tgt, fields, opt):
             sort_key=inputters.str2sortkey["text"],
             filter_pred=None
         )
-    dataset.save("/tmp/OL_dataset.pt")
+    return dataset
 
 
 def train(src, tgt, trainer, fields, n, opt):
-    # Temporal solution that stores the sentence into /tmp/OL_dataset.pt
-    create_dataset(src, tgt, fields, opt)
+    dataset = create_dataset(src, tgt, fields, opt)
 
-    train_iter = DatasetLazyIter(["/tmp/OL_dataset.pt"], fields, opt.batch_size,
+    train_iter = OLDatasetLazyIter(dataset, fields, opt.batch_size,
                                  max_tok_len if opt.batch_type == "tokens" else None,
                                  8 if opt.model_dtype == "fp16" else 1, "cuda" if opt.gpu_ranks else "cpu",
                                  True, repeat=not opt.single_pass, num_batches_multiple=max(opt.accum_count)
