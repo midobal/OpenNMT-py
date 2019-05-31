@@ -22,6 +22,7 @@ Table of Contents
   * [Requirements](#requirements)
   * [Features](#features)
   * [Quickstart](#quickstart)
+  * [Rescoring](#rescoring)
   * [Run on FloydHub](#run-on-floydhub)
   * [Acknowledgements](#acknowledgements)
   * [Citation](#citation)
@@ -112,6 +113,27 @@ Now you have a model which you can use to predict on new data. We do this by run
 
 !!! note "Note"
     The predictions are going to be quite terrible, as the demo dataset is small. Try running on some larger datasets! For example you can download millions of parallel sentences for [translation](http://www.statmt.org/wmt16/translation-task.html) or [summarization](https://github.com/harvardnlp/sent-summary).
+    
+## Rescoring
+
+### Requirements
+
+[Fast align](https://github.com/clab/fast_align)
+
+### Step 1: Train fast align
+
+```bash
+fast_align -i corpus.f-e -d -v -o -p fwd_params >fwd_align 2>fwd_err
+m=$(grep "expected target length" fwd_err | awk '{print $NF}')
+if [[ $m -eq '-nan' ]]; then m=0; fi
+T=$(grep "final tension" fwd_err | awk '{print $NF}' | tail -n 1)
+```
+
+### Step 2: Rescore sentences
+
+```bash
+python rescorer.py -s test.src -t n_best.hyp -b path_to_fast_align -T $T -m $m -f fwd_params -a alpha -n n_nest_value
+```
 
 ## Alternative: Run on FloydHub
 
