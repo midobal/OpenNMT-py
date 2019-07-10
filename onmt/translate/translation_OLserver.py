@@ -13,10 +13,10 @@ import torch
 import onmt.opts
 
 from onmt.utils.logging import init_logger
-from OL import build_translator as build_OLtranslator
-from OL import load_model as load_OLmodel
-from OL import train as OLtrain
-from OL import get_target, get_source
+from onmt.online_learning import build_translator as build_OLtranslator
+from onmt.online_learning import load_model as load_OLmodel
+from onmt.online_learning import train as OLtrain
+from OLsim import get_target, get_source
 
 from sacremoses import MosesTokenizer, MosesDetokenizer
 from tools.apply_bpe import BPE
