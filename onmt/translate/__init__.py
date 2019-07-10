@@ -8,9 +8,8 @@ from onmt.translate.random_sampling import RandomSampling
 from onmt.translate.penalties import PenaltyBuilder
 from onmt.translate.translation_server import TranslationServer, \
     ServerModelError
-from onmt.translate.translation_OLserver import OLServer, OLServerModelError
 
 __all__ = ['Translator', 'Translation', 'Beam', 'BeamSearch',
            'GNMTGlobalScorer', 'TranslationBuilder',
-           'PenaltyBuilder', 'TranslationServer', 'ServerModelError', 'OLServer', 'OLServerModelError',
+           'PenaltyBuilder', 'TranslationServer', 'ServerModelError',
            "DecodeStrategy", "RandomSampling"]
