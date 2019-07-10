@@ -9,7 +9,6 @@
             "load": true,
             "opt": {
                 "beam_size": 5,
-		"data": "./data/demo",
 		"optim": "sgd",
 		"learning_rate": 0.02,
 		"learning_rate_decay": 1.0,
