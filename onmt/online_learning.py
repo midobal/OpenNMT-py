@@ -16,6 +16,7 @@ from onmt.train_single import _tally_parameters, _check_save_model_path
 from onmt.translate.translator import Translator
 from onmt.inputters.dataset_base import Dataset
 import onmt.inputters as inputters
+from onmt.translate.beam import GNMTGlobalScorer as GNMTGlobalScorer
 
 
 def load_model(opt, device_id):
@@ -81,7 +82,8 @@ def build_translator(model, fields, opt, model_opt, out_file):
         fields,
         opt,
         model_opt,
-        global_scorer=onmt.translate.GNMTGlobalScorer.from_opt(opt),
+        # global_scorer=onmt.translate.GNMTGlobalScorer.from_opt(opt),
+        global_scorer=GNMTGlobalScorer.from_opt(opt),
         out_file=out_file,
         report_score=True,
         logger=logger

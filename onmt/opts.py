@@ -531,9 +531,6 @@ def OL_opts(parser):
     """ Online Learning options (training and translating) """
 
     group = parser.add_argument_group('General')
-    group.add_argument('-data', required=True,
-                       help="""Path prefix to the ".train.pt" and
-                       ".valid.pt" file path from preprocess.py""")
 
     group.add_argument('-save_model', default='model',
                        help="""Model filename (the model will be saved as
