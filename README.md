@@ -120,7 +120,7 @@ Now you have a model which you can use to predict on new data. We do this by run
 You can use the translation references to simulate a user in an online learning environment.
 
 ```bash
-python OLsim.py -data data/demo -save_model OL-model -optim sgd -learning_rate 0.02 -learning_rate_decay 1.0 -dropout 0 -model demo-model_step_XX.pt -src data/src-val.txt -tgt data/tgt-val.txt -output test.hyp
+python OLsim.py -save_model OL-model -optim sgd -learning_rate 0.02 -learning_rate_decay 1.0 -dropout 0 -model demo-model_step_XX.pt -src data/src-val.txt -tgt data/tgt-val.txt -output test.hyp
 ```
 
 The simulation starts by translating the first sentence using the original translation system. Then, the translation hypothesis is saved into the output's file, and the source and the translation reference are used to retrain the system. After that, the following sentence is translated using the retrained system. The translation hypothesis is saved into the output's file, and the system is retrained using that sentence source and target. This process is repeated until all sentences have been translated.  
