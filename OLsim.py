@@ -77,11 +77,13 @@ def main(opt):
         logger.info('Processing line %s.' % n_line)
 
         # Translate source.
+        model.eval() # Set model to evaluation.
         translator.translate(src=[src[n_line]],
                              tgt=None,
                              src_dir=None,
                              batch_size=opt.batch_size,
                              attn_debug=opt.attn_debug)
+        model.train() # Set model back to train.
 
         # Update models using the reference.
         for updates in range(opt.ol_updates):

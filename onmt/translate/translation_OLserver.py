@@ -348,6 +348,7 @@ class ServerModel:
                 times: (dict) containing times
         """
         self.stop_unload_timer()
+        self.model.eval() # Set model to evaluation.
 
         timer = Timer()
         timer.start()
@@ -446,6 +447,7 @@ class ServerModel:
                 times: (dict) containing times
         """
         self.stop_unload_timer()
+        self.model.train() # Set model to train.
 
         timer = Timer()
         timer.start()
