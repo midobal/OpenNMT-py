@@ -560,10 +560,6 @@ def OL_opts(parser):
     group.add_argument('-master_port', default=10000, type=int,
                        help="Port of master for torch.distributed training.")
 
-    group.add_argument('-seed', type=int, default=-1,
-                       help="""Random seed used for the experiments
-                       reproducibility.""")
-
     # Init options
     group = parser.add_argument_group('Initialization')
     group.add_argument('-param_init', type=float, default=0.1,
