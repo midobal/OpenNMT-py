@@ -94,6 +94,9 @@ class GlobalAttention(nn.Module):
         if coverage:
             self.linear_cover = nn.Linear(1, dim, bias=False)
 
+        # Window-based attention
+        self.window = None
+
     def score(self, h_t, h_s):
         """
         Args:
@@ -135,12 +138,15 @@ class GlobalAttention(nn.Module):
 
             return self.v(wquh.view(-1, dim)).view(tgt_batch, tgt_len, src_len)
 
-    def forward(self, source, memory_bank, memory_lengths=None, coverage=None):
+    def forward(self, source, memory_bank, tgt_n, tgt_len, window_size, memory_lengths=None, coverage=None):
         """
 
         Args:
           source (FloatTensor): query vectors ``(batch, tgt_len, dim)``
           memory_bank (FloatTensor): source vectors ``(batch, src_len, dim)``
+          tgt_n (`int`): current target
+          tgt_len (`int`): target len
+          src_len (`int`): source len
           memory_lengths (LongTensor): the source context lengths ``(batch,)``
           coverage (FloatTensor): None (not supported yet)
 
@@ -176,6 +182,20 @@ class GlobalAttention(nn.Module):
 
         # compute attention scores, as in Luong et al.
         align = self.score(source, memory_bank)
+
+        # window-based attention
+        if window_size >= 0:
+            window = torch.cat((torch.zeros(min(0, tgt_n - window_size), 1),
+                                torch.ones(2 * window_size + 1, 1),
+                                torch.zeros(min(0, source_l - (tgt_n + window_size + 1)), 1)), 1)
+            if self.window is not None:
+                window = torch.cat((self.window, window), 0)
+
+            self.window = window
+            window = window.repeat(batch, 1, 1)
+
+            align = torch.mul(align, window)
+
 
         if memory_lengths is not None:
             mask = sequence_mask(memory_lengths, max_len=align.size(-1))

@@ -84,7 +84,7 @@ class RNNDecoderBase(DecoderBase):
                  hidden_size, attn_type="general", attn_func="softmax",
                  coverage_attn=False, context_gate=None,
                  copy_attn=False, dropout=0.0, embeddings=None,
-                 reuse_copy_attn=False, copy_attn_type="general"):
+                 reuse_copy_attn=False, copy_attn_type="general", window_size=-1):
         super(RNNDecoderBase, self).__init__(
             attentional=attn_type != "none" and attn_type is not None)
 
@@ -138,6 +138,9 @@ class RNNDecoderBase(DecoderBase):
         if self._reuse_copy_attn and not self.attentional:
             raise ValueError("Cannot reuse copy attention with no attention.")
 
+        # Window-based attention
+        self.window_size = window_size
+
     @classmethod
     def from_opt(cls, opt, embeddings):
         """Alternate constructor."""
@@ -155,7 +158,8 @@ class RNNDecoderBase(DecoderBase):
             else opt.dropout,
             embeddings,
             opt.reuse_copy_attn,
-            opt.copy_attn_type)
+            opt.copy_attn_type,
+            opt.window_size)
 
     def init_state(self, src, memory_bank, encoder_final):
         """Initialize decoder state with last state of the encoder."""
@@ -386,6 +390,7 @@ class InputFeedRNNDecoder(RNNDecoderBase):
 
         # Input feed concatenates hidden state with
         # input at every time step.
+        tgt_n = 1
         for emb_t in emb.split(1):
             decoder_input = torch.cat([emb_t.squeeze(0), input_feed], 1)
             rnn_output, dec_state = self.rnn(decoder_input, dec_state)
@@ -393,6 +398,9 @@ class InputFeedRNNDecoder(RNNDecoderBase):
                 decoder_output, p_attn = self.attn(
                     rnn_output,
                     memory_bank.transpose(0, 1),
+                    tgt_n,
+                    tgt.size()[0],
+                    self.window_size,
                     memory_lengths=memory_lengths)
                 attns["std"].append(p_attn)
             else:
@@ -415,10 +423,12 @@ class InputFeedRNNDecoder(RNNDecoderBase):
 
             if self.copy_attn is not None:
                 _, copy_attn = self.copy_attn(
-                    decoder_output, memory_bank.transpose(0, 1))
+                    decoder_output, memory_bank.transpose(0, 1),
+                    tgt_n, tgt.size()[0], self.window_size)
                 attns["copy"] += [copy_attn]
             elif self._reuse_copy_attn:
                 attns["copy"] = attns["std"]
+            tgt_n += 1
 
         return dec_state, dec_outs, attns
 
