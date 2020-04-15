@@ -84,7 +84,7 @@ class RNNDecoderBase(DecoderBase):
                  hidden_size, attn_type="general", attn_func="softmax",
                  coverage_attn=False, context_gate=None,
                  copy_attn=False, dropout=0.0, embeddings=None,
-                 reuse_copy_attn=False, copy_attn_type="general", window_size=-1):
+                 reuse_copy_attn=False, copy_attn_type="general", att_window_size=-1):
         super(RNNDecoderBase, self).__init__(
             attentional=attn_type != "none" and attn_type is not None)
 
@@ -139,7 +139,7 @@ class RNNDecoderBase(DecoderBase):
             raise ValueError("Cannot reuse copy attention with no attention.")
 
         # Window-based attention
-        self.window_size = int(window_size)
+        self.window_size = int(att_window_size)
 
     @classmethod
     def from_opt(cls, opt, embeddings):
@@ -159,7 +159,7 @@ class RNNDecoderBase(DecoderBase):
             embeddings,
             opt.reuse_copy_attn,
             opt.copy_attn_type,
-            opt.window_size)
+            opt.att_window_size)
 
     def init_state(self, src, memory_bank, encoder_final):
         """Initialize decoder state with last state of the encoder."""
@@ -399,8 +399,7 @@ class InputFeedRNNDecoder(RNNDecoderBase):
                     rnn_output,
                     memory_bank.transpose(0, 1),
                     tgt_n,
-                    tgt.size()[0],
-                    self.window_size,
+                    self.att_window_size,
                     memory_lengths=memory_lengths)
                 attns["std"].append(p_attn)
             else:
@@ -424,7 +423,7 @@ class InputFeedRNNDecoder(RNNDecoderBase):
             if self.copy_attn is not None:
                 _, copy_attn = self.copy_attn(
                     decoder_output, memory_bank.transpose(0, 1),
-                    tgt_n, tgt.size()[0], self.window_size)
+                    tgt_n, self.att_window_size)
                 attns["copy"] += [copy_attn]
             elif self._reuse_copy_attn:
                 attns["copy"] = attns["std"]
