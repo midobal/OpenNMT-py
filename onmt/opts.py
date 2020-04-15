@@ -153,7 +153,7 @@ def model_opts(parser):
               help='Size of hidden transformer feed-forward')
     group.add('--aan_useffn', '-aan_useffn', action="store_true",
               help='Turn on the FFN layer in the AAN decoder')
-    group.add('--window_size', '-window_size', type=int, default=-1,
+    group.add('--att_window_size', '-att_window_size', type=int, default=-1,
               help='Size of the window for window-based attention. (Default: source size.)')
 
     # Alignement options
