@@ -185,9 +185,9 @@ class GlobalAttention(nn.Module):
 
         # window-based attention
         if window_size >= 0:
-            window = torch.cat((torch.zeros(min(0, tgt_n - window_size), 1),
-                                torch.ones(2 * window_size + 1, 1),
-                                torch.zeros(min(0, source_l - (tgt_n + window_size + 1)), 1)), 1)
+            window = torch.cat((torch.zeros(min(0, tgt_n - window_size), 1).cuda(),
+                                torch.ones(2 * window_size + 1, 1).cuda(),
+                                torch.zeros(min(0, source_l - (tgt_n + window_size + 2)), 1)).cuda(), 1)
             if self.window is not None:
                 window = torch.cat((self.window, window), 0)
 
