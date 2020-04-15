@@ -146,7 +146,7 @@ class GlobalAttention(nn.Module):
           memory_bank (FloatTensor): source vectors ``(batch, src_len, dim)``
           tgt_n (`int`): current target
           tgt_len (`int`): target len
-          src_len (`int`): source len
+          window_size (`int`): size of the attention window
           memory_lengths (LongTensor): the source context lengths ``(batch,)``
           coverage (FloatTensor): None (not supported yet)
 
@@ -187,7 +187,7 @@ class GlobalAttention(nn.Module):
         if window_size >= 0:
             window = torch.cat((torch.zeros(min(0, tgt_n - window_size), 1).cuda(),
                                 torch.ones(2 * window_size + 1, 1).cuda(),
-                                torch.zeros(min(0, source_l - (tgt_n + window_size + 2)), 1)).cuda(), 1)
+                                torch.zeros(min(0, source_l - (tgt_n + window_size + 2)), 1).cuda()), 1)
             if self.window is not None:
                 window = torch.cat((self.window, window), 0)
 

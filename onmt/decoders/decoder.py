@@ -139,7 +139,7 @@ class RNNDecoderBase(DecoderBase):
             raise ValueError("Cannot reuse copy attention with no attention.")
 
         # Window-based attention
-        self.window_size = window_size
+        self.window_size = int(window_size)
 
     @classmethod
     def from_opt(cls, opt, embeddings):
